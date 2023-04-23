@@ -2,12 +2,12 @@
 #include "TileEditor.h"
 
 #include <Color.h>
-#include <Noise.h>
 #include <Matrix.h>
+#include <Noise.h>
+#include <moremath.h>
 #include <sky.h>
 #include <skyui.h>
 #include <tiles.h>
-#include <moremath.h>
 
 #include <array>
 #include <functional>
@@ -16,6 +16,13 @@
 using namespace demo;
 
 /* -------------------------------------------------------------------------- */
+
+auto newRandomSeed()
+{
+    std::random_device rnd;
+    const long         seed = rnd() % 0xfffffffffffffff;
+    mist::setPerlinSeed(seed);
+}
 
 class DemoAssets : public sky::Assets
 {
@@ -30,43 +37,62 @@ public:
     }
 
     struct Tiles {
+        constexpr static auto N_WATER_TILES = 4;
+        constexpr static auto N_SAND = 2;
+        constexpr static auto N_GRASS_TILES = 8;
+        constexpr static auto N_DIRT_TILES = 16;
+
         constexpr static auto WATER_START = 0;
-        constexpr static auto WATER_END = 3;
-        constexpr static auto SAND = 4;
-        constexpr static auto GRASS_START = 5;
-        constexpr static auto GRASS_END = 8;
-        constexpr static auto DIRT_START = 9;
-        constexpr static auto DIRT_END = 12;
+        constexpr static auto WATER_END = WATER_START + N_WATER_TILES - 1;
+        constexpr static auto SAND_START = WATER_END + 1;
+        constexpr static auto SAND_END = SAND_START + N_SAND - 1;
+        constexpr static auto GRASS_START = SAND_END + 1;
+        constexpr static auto GRASS_END = GRASS_START + N_GRASS_TILES - 1;
+        constexpr static auto DIRT_START = GRASS_END + 1;
+        constexpr static auto DIRT_END = DIRT_START + N_DIRT_TILES - 1;
     };
 
     sky::Tileset makeTileset(int tileSize)
     {
         using mist::lerp;
-        auto water = sky::TilePainters::plainColor([](int i) {
-            return sky::hsv(sky::Hue::Blue, 1.0f, lerp((float)i / 4, 0.3f, 1.0f));
-        });
-        auto sand = sky::TilePainters::plainColor(sky::hsv(50.0f, 1.0f, 0.8f));
-        auto grass = sky::TilePainters::plainColor([](int i) {
-            return sky::hsv(sky::Hue::Green, 1.0f, lerp((float)(3 - i) / 4, 0.3f, 1.0f));
-        });
-        auto dirt = sky::TilePainters::plainColor([](int i) {
-            return sky::hsv(50.0f, 0.7f, lerp((float)(3 - i) / 4, 0.2f, 0.7f));
+
+        auto water =
+            sky::TilePainters::hsvValueRamp(sky::Hue::Blue, 1.0f, 0.3f, 1.0f, Tiles::N_WATER_TILES);
+
+        auto sand = sky::TilePainters::plainColor([=](int i) {
+            const auto hue =
+                mist::lerp((static_cast<float>(i) / static_cast<float>(Tiles::N_SAND - 1)),
+                           sky::Hue::Blue, 50.0f);
+            const auto sat = 1.0f;
+            const auto val = mist::lerp(
+                (static_cast<float>(i) / static_cast<float>(Tiles::N_SAND - 1)), 1.0f, 0.8f);
+            return sky::hsv(hue, sat, val);
         });
 
-        return sky::TilesetBuilder(tileSize, 16)
-            .generateSequence(0, 4, water)
-            .generateTile(4, sand)
-            .generateSequence(5, 4, grass)
-            .generateSequence(9, 4, dirt)
+        auto grass = sky::TilePainters::hsvValueRamp(sky::Hue::Green, 0.9f, 1.0f, 0.3f,
+                                                     Tiles::N_GRASS_TILES);
+
+        auto between = sky::TilePainters::plainColor(sky::HSVRamp(Tiles::N_DIRT_TILES / 2)
+                                                         .from({sky::Hue::Green, 0.9f, 0.3f})
+                                                         .to({50.0f, 0.7f, 0.7f}));
+
+        auto dirt =
+            sky::TilePainters::hsvValueRamp(50.0f, 0.7f, 0.7f, 0.4f, Tiles::N_DIRT_TILES / 2);
+
+        return sky::TilesetBuilder(tileSize)
+            .addSequence(Tiles::N_WATER_TILES, water)
+            .addSequence(Tiles::N_SAND, sand)
+            .addSequence(Tiles::N_GRASS_TILES, grass)
+            .addSequence(Tiles::N_DIRT_TILES / 2, between)
+            .addSequence(Tiles::N_DIRT_TILES / 2, dirt)
             .build();
     }
 
-    sky::Tileset tileset;
-    const int defaultTile = 0;
-    // const std::vector<int> tilePalette {40, 41, 42};
+    sky::Tileset           tileset;
+    const int              defaultTile = 0;
     const std::vector<int> tilePalette {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
-    Drw tileSelectorSprite {loadSprite("res/selection.png")};
+    Drw  tileSelectorSprite {loadSprite("res/selection.png")};
     Font font {std::make_shared<sky::Font>("res/default.ttf", 14)};
 };
 
@@ -88,8 +114,7 @@ public:
 
     Controller controller;
 
-    InfoUi(const DemoAssets &assets)
-        : sky::Ui(assets.font)
+    InfoUi(const DemoAssets &assets) : sky::Ui(assets.font)
     {
         auto root_ = std::make_shared<sky::LinearLayout>();
         populate(*root_);
@@ -135,22 +160,16 @@ public:
         updateSelected();
     }
 
-    void increaseSetting()
-    {
-        settingAt(selected)(0.05);
-    }
+    void increaseSetting() { settingAt(selected)(0.05); }
 
-    void decreaseSetting()
-    {
-        settingAt(selected)(-0.05);
-    }
+    void decreaseSetting() { settingAt(selected)(-0.05); }
 
 private:
-    sky::Label waterRandom;
-    sky::Label waterScale;
-    sky::Label groundRandom;
-    sky::Label groundScale;
-    sky::Label waterLevel;
+    sky::Label                   waterRandom;
+    sky::Label                   waterScale;
+    sky::Label                   groundRandom;
+    sky::Label                   groundScale;
+    sky::Label                   waterLevel;
     std::array<sky::Widget *, 5> all {&waterRandom, &waterScale, &groundRandom, &groundScale,
                                       &waterLevel};
 
@@ -174,8 +193,7 @@ private:
 class TileEditorScene : public sky::Scene
 {
 public:
-    TileEditorScene(int tileSize, int mapSize)
-        : assets(tileSize)
+    TileEditorScene(int tileSize, int mapSize) : assets(tileSize)
     {
         editor = std::make_shared<demo::TileEditor>(assets.tileset, mapSize, mapSize);
         selector = std::make_shared<demo::TileSelector>(editor, assets.tileSelectorSprite);
@@ -203,7 +221,10 @@ public:
             break;
         case SDL_SCANCODE_PAGEDOWN: palette->selectNext(); break;
         case SDL_SCANCODE_PAGEUP: palette->selectPrevious(); break;
-        case SDL_SCANCODE_N: generateNoiseMap(); break;
+        case SDL_SCANCODE_N:
+            newRandomSeed();
+            generateNoiseMap();
+            break;
         case SDL_SCANCODE_RIGHTBRACKET: infoUi->nextSetting(); break;
         case SDL_SCANCODE_LEFTBRACKET: infoUi->prevSetting(); break;
         case SDL_SCANCODE_EQUALS: infoUi->increaseSetting(); break;
@@ -215,16 +236,13 @@ public:
     void onUpdate(float) override {}
 
 private:
-    DemoAssets assets;
-    std::shared_ptr<demo::TileEditor> editor;
+    DemoAssets                          assets;
+    std::shared_ptr<demo::TileEditor>   editor;
     std::shared_ptr<demo::TileSelector> selector;
-    std::shared_ptr<demo::TilePalette> palette;
-    std::shared_ptr<InfoUi> infoUi;
+    std::shared_ptr<demo::TilePalette>  palette;
+    std::shared_ptr<InfoUi>             infoUi;
 
-    void initTileset()
-    {
-        palette->setPalette(assets.tilePalette);
-    }
+    void initTileset() { palette->setPalette(assets.tilePalette); }
 
     void initUi()
     {
@@ -255,10 +273,7 @@ private:
         };
     }
 
-    void initTerrain()
-    {
-        editor->fill(assets.defaultTile);
-    }
+    void initTerrain() { editor->fill(assets.defaultTile); }
 
     void placeObjects()
     {
@@ -291,36 +306,44 @@ private:
 
     void generateNoiseMap()
     {
-        mist::PerlinNoise2 noise;
-        mist::Matrix<double> waterMap(editor->getWidth(), editor->getHeight());
-        mist::Matrix<double> groundMap(editor->getWidth(), editor->getHeight());
-
         editor->fill(0);
 
-        // generate water and ground noisemaps
-        mist::NoiseTextureBuilder2(waterMap, noise)
+        mist::PerlinNoise2       perlin;
+        mist::OctaveNoise2       octaves = mist::OctaveNoise2(perlin).setNumOctaves(2);
+        mist::DomainWarpedNoise2 warp(octaves);
+        mist::Matrix<double>     waterMap(editor->getWidth(), editor->getHeight());
+        mist::Matrix<double>     groundMap(editor->getWidth(), editor->getHeight());
+
+        // generate water and ground noise maps
+        mist::NoiseTextureBuilder2(waterMap, perlin)
             .setNoiseScale(waterScale)
+            .setXScale(1)
+            .setYScale(1)
             .build();
-        mist::NoiseTextureBuilder2(groundMap, noise)
+
+        mist::NoiseTextureBuilder2<double>(groundMap, warp)
             .setNoiseScale(groundScale)
+            .setXScale(2)
+            .setYScale(2)
             .build();
 
         // Define mapping from noise values to tiles.
         // The mapping uses -1,1 input range as a baseline. Noise scale and the randomness
         // affect the actual range of input values. An optional normalization step
         // may be added here.
-        mist::LinearTransform toWaterTile(-1.0, waterLevel, DemoAssets::Tiles::WATER_START,
-                                         DemoAssets::Tiles::SAND);
-        mist::LinearTransform toGroundTile(-1.0, 1.0, DemoAssets::Tiles::GRASS_START,
-                                          DemoAssets::Tiles::DIRT_END);
+        mist::LinearTransform<double> toWaterTile(-1.0, waterLevel, DemoAssets::Tiles::WATER_START,
+                                          DemoAssets::Tiles::SAND_END);
+        mist::LinearTransform<double> toGroundTile(-1.0, 1.0, DemoAssets::Tiles::GRASS_START,
+                                           DemoAssets::Tiles::DIRT_END);
 
-        // combine water and ground noisemaps and apply noise to tile transforms
+        // combine water and ground noise maps and apply noise to tile transforms
         groundMap.foreachKeyValue([&](const mist::Point2i &p, double v) {
-            return waterMap.at(p) < waterLevel ? toWaterTile(waterMap.at(p)) : toGroundTile(v);
+            groundMap.at(p) =
+                waterMap.at(p) < waterLevel ? toWaterTile(waterMap.at(p)) : toGroundTile(v);
         });
 
         // draw
-        groundMap.foreachKeyValue ([&](const mist::Point2i &p, double v) {
+        groundMap.foreachKeyValue([&](const mist::Point2i &p, double v) {
             editor->brush(p, mist::roundi(v));
         });
     }
@@ -340,6 +363,8 @@ constexpr auto MAP_SIZE = 48;
 
 void demo::tileeditor()
 {
+    newRandomSeed();
+
     sky::Sky::initWindow("Tile Editor", 1000, 800);
     TileEditorScene scene {TILE_SIZE, MAP_SIZE};
     sky::Sky::getInstance().setScene(&scene);

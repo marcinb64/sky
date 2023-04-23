@@ -5,7 +5,7 @@ sdl/2.26.1
 sdl_ttf/2.20.1
 sdl_image/2.0.5
 libpng/1.6.37
-mist/0.1.6@marcin/testing
+mist/0.1.7@marcin/testing
 
 [generators]
 cmake_find_package

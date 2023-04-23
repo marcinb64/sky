@@ -1,11 +1,14 @@
 #include "MistDemo.h"
 #include "DemoWidgets.h"
 
+#include "Terraform.h"
+
+#include <MapTools.h>
 #include <Noise.h>
-#include <Terraform.h>
 #include <moremath.h>
 
 #include <Value.h>
+#include <map>
 #include <sky.h>
 #include <skyui.h>
 #include <spdlog/spdlog.h>
@@ -17,34 +20,16 @@ using namespace demo;
 using Point2f = mist::Point2f;
 using Point2i = mist::Point2i;
 
-template <> struct fmt::formatter<mist::Point2i> {
-    constexpr auto parse(format_parse_context &ctx) -> decltype(ctx.begin()) { return ctx.end(); }
-
-    template <typename FormatContext>
-    auto format(const mist::Point2i &c, FormatContext &ctx) -> decltype(ctx.out())
-    {
-        return format_to(ctx.out(), "({}, {})", c.x, c.y);
-    }
-};
-
-namespace mist
-{
-auto operator<(const Point2i a, const Point2i b) noexcept -> bool
-{
-    return a.x < b.x || (a.x <= b.x && a.y < b.y);
-}
-} // namespace mist
-
 namespace demo
 {
 
 /* -------------------------------------------------------------------------- */
 
 constexpr auto FPS_CAP = 60.0;
-constexpr auto TILE_SIZE = 4;
+constexpr auto TILE_SIZE = 8;
 constexpr auto MAP_SIZE = 128 + 1;
 // constexpr auto TILE_SIZE = 32;
-// constexpr auto MAP_SIZE = 8 + 1;
+// constexpr auto MAP_SIZE = 32 + 1;
 constexpr auto DEFAULT_ROUGHNESS = 0.75;
 constexpr auto DEFAULT_INITIAL_RANDOMNESS = 1.0;
 
@@ -52,28 +37,110 @@ constexpr auto DEFAULT_INITIAL_RANDOMNESS = 1.0;
 
 #include <Color.h>
 
-class DemoAssets : public sky::Assets
+struct Biome {
+    int                           startTile;
+    int                           endTile;
+    mist::LinearTransform<double> valueToTile;
+
+    Biome(int startTile_, int endTile_) : valueToTile(0.0, 1.0, startTile_, endTile_) {}
+};
+
+struct HSV {
+    float hue;
+    float sat;
+    float val;
+};
+
+class LazyTileProvider : public TileProvider
+{
+public:
+    virtual ~LazyTileProvider() = default;
+
+    auto getBiomeTile(int biome, double value) -> int override
+    {
+        return mist::roundi(biomes.at(biome).valueToTile(value));
+    }
+
+    auto getTransitionTile(int, int, double) -> int override { return 0; }
+
+    auto addBiome(const sky::HSV &startColor, const sky::HSV &endColor, int numTiles)
+    {
+        auto nextTile = generateBiomeTiles(numTiles, startColor, endColor);
+        biomes.emplace_back(Biome {nextTile, nextTile + numTiles - 1});
+
+        nextTile += numTiles;
+        nextBiome++;
+    }
+
+private:
+    int                nextBiome {0};
+    std::vector<Biome> biomes;
+
+    virtual auto generateBiomeTiles(int numTiles, const sky::HSV &startColor,
+                                    const sky::HSV &endColor) -> int = 0;
+};
+
+class DemoAssets : public sky::Assets, public LazyTileProvider
 {
     using Font = std::shared_ptr<sky::Font>;
 
 public:
-    static constexpr auto waterTilesStart = 100;
+    static constexpr auto tilesCapacity = 8 * 10;
 
-    DemoAssets(int tileSize) : tileset(makeTileset(tileSize)) {}
+    Font                font {std::make_shared<sky::Font>("res/default.ttf", 14)};
+    sky::TilesetBuilder tilesetBuilder;
+    sky::Tileset        tileset;
 
-    Font         font {std::make_shared<sky::Font>("res/default.ttf", 14)};
-    sky::Tileset tileset;
+    DemoAssets(int tileSize) : tilesetBuilder(tileSize), tileset(makeEmptyTileset())
+    {
+        // dirt
+        addBiome({50.0f, 0.7f, 0.4f}, {50.0f, 0.7f, 0.7f}, 8);
+        // dirt-to-grass
+        addBiome({50.0f, 0.7f, 0.7f}, {sky::Hue::Green, 0.8f, 0.3f}, 4);
+        // grass
+        addBiome({sky::Hue::Green, 0.8f, 0.3f}, {sky::Hue::Green, 0.9f, 0.9f}, 8);
+        // water
+        addBiome({246.0f, 0.8f, 0.3f}, {246.0f, 0.8f, 1.0f}, 8);
 
-    sky::Tileset makeTileset(int tileSize)
+        tileset = tilesetBuilder.update();
+    }
+
+    virtual ~DemoAssets() = default;
+
+private:
+    int nextTile = 0;
+
+    sky::Tileset makeEmptyTileset()
+    {
+        return tilesetBuilder
+            .addSequence(tilesCapacity, sky::TilePainters::plainColor(sky::SDLColor {0, 0, 0, 255}))
+            .build();
+    }
+
+    auto generateBiomeTiles(int numTiles, const sky::HSV &startColor, const sky::HSV &endColor)
+        -> int override
+    {
+        auto startTile = nextTile;
+        nextTile += numTiles;
+
+        auto ramp = sky::HSVRamp(numTiles).from(startColor).to(endColor);
+        auto painter = sky::TilePainters::plainColor(ramp);
+
+        for (int i = 0; i < numTiles; ++i)
+            tilesetBuilder.drawTile(startTile + i, i, painter);
+
+        return startTile;
+    }
+
+    sky::Tileset makeGrayscaleTileset(int tileSize)
     {
         static constexpr auto steps = 100;
-        using mist::lerp;
         auto grayscale = sky::TilePainters::hsvValueRamp(0.0f, 0.0f, 0.0f, 1.0f, steps);
         auto blueScale = sky::TilePainters::hsvValueRamp(246.0f, 1.0f, 0.0f, 1.0f, steps);
 
-        return sky::TilesetBuilder(tileSize, steps + steps)
-            .generateSequence(0, steps, grayscale)
-            .generateSequence(steps, steps, blueScale)
+        return sky::TilesetBuilder(tileSize)
+            .addSequence(steps, grayscale)
+            .addSequence(steps, blueScale)
             .build();
     }
 };
@@ -82,6 +149,7 @@ public:
 
 struct UiModel {
     mist::Value<long>   seed;
+    mist::Value<int>    numOctaves {5};
     mist::Value<double> roughness {DEFAULT_ROUGHNESS};
     mist::Value<double> xyScale {1.5};
     mist::Value<double> noiseScale {1.0};
@@ -107,6 +175,8 @@ public:
 
         seedWidget.attach(
             std::make_unique<ParameterController<long>>(model.seed, 1, 0, 0xfffffffffffffff));
+        octavesWidget.attach(
+            std::make_unique<ParameterController<int>>(model.numOctaves, 1, 1, 20));
         roughnessWidget.attach(
             std::make_unique<ParameterController<double>>(model.roughness, 0.05, 0.0, 10.0));
         xyScaleWidget.attach(
@@ -155,6 +225,7 @@ public:
 
 private:
     ParameterWidget<long>   seedWidget {"Seed: ", model.seed, renderLongNum};
+    ParameterWidget<int>    octavesWidget {"Octaves: ", model.numOctaves, renderLongNum};
     ParameterWidget<double> roughnessWidget {"Roughness: ", model.roughness, renderDoubleNum};
     ParameterWidget<double> xyScaleWidget {"XY Scale: ", model.xyScale, renderDoubleNum};
     ParameterWidget<double> noiseScaleWidget {"Noise Scale: ", model.noiseScale, renderDoubleNum};
@@ -163,9 +234,9 @@ private:
                                                 renderDoubleNum};
     ParameterWidget<double> riverDepthWidget {"River depth: ", model.riverDepth, renderDoubleNum};
 
-    std::array<TweakableWidget *, 7> settings {
-        &seedWidget,      &roughnessWidget,    &xyScaleWidget,   &noiseScaleWidget,
-        &routeCostWidget, &riverMaxSizeWidget, &riverDepthWidget};
+    std::array<TweakableWidget *, 8> settings {
+        &seedWidget,       &octavesWidget,   &roughnessWidget,    &xyScaleWidget,
+        &noiseScaleWidget, &routeCostWidget, &riverMaxSizeWidget, &riverDepthWidget};
 
     int selected {0};
 };
@@ -175,9 +246,9 @@ private:
 class MistDemoScene : public sky::Scene
 {
 public:
-    MistDemoScene(const DemoAssets &assets_, int mapSize)
+    MistDemoScene(DemoAssets &assets_, int mapSize)
         : assets(assets_), groundMap(mapSize, mapSize), waterMap(mapSize, mapSize),
-          costMap(mapSize, mapSize)
+          costMap(mapSize, mapSize), terraform({mapSize, mapSize}, assets_)
     {
         tilemap = std::make_shared<sky::TileMap>(assets.tileset, mapSize, mapSize);
         mapViewer = std::make_shared<demo::MapViewer>(assets.tileset, tilemap);
@@ -186,6 +257,10 @@ public:
         std::random_device rnd;
         const long         seed = rnd() % 0xfffffffffffffff;
         infoUi->model.seed = seed;
+
+        terraform.addBiome(0, -0.15);
+        terraform.addBiome(1, 0.15);
+        terraform.addBiome(2, 1.0);
 
         placeObjects();
         onSettingsChanged();
@@ -239,7 +314,7 @@ public:
     [[nodiscard]] auto getSeed() const noexcept -> long { return infoUi->model.seed; }
 
 private:
-    const DemoAssets                &assets;
+    DemoAssets                      &assets;
     std::shared_ptr<demo::MapViewer> mapViewer;
     std::shared_ptr<InfoUi>          infoUi;
     std::shared_ptr<sky::TileMap>    tilemap;
@@ -247,8 +322,10 @@ private:
     mist::Matrix<double> groundMap;
     mist::Matrix<double> waterMap;
     mist::Matrix<double> costMap;
-    int                  viewMode = 0;
-    int                  algo = 1;
+
+    Terraformer terraform;
+    int         viewMode = 0;
+    int         algo = 1;
 
     void initUi() {}
 
@@ -266,6 +343,14 @@ private:
 
     void onSettingsChanged()
     {
+        /*         tilemap->fill(0);
+                for (int i = 0; i < 8; i++) {
+                    (*tilemap)[{i, 1}] = assets.getBiomeTile(0, (double)i / 7.0);
+                    (*tilemap)[{i, 2}] = assets.getBiomeTile(1, (double)i / 7.0);
+                    (*tilemap)[{i, 3}] = assets.getBiomeTile(2, (double)i / 7.0);
+                }
+                return;
+         */
         generateNoiseMap();
         if (viewMode == 0) visualizeTerrain();
         if (viewMode == 1) visualizeCost();
@@ -282,20 +367,31 @@ private:
         mist::setPerlinSeed(infoUi->model.seed);
 
         if (algo == 0) {
-            mist::DiamondSquare<double>(groundMap)
+            mist::DiamondSquare(groundMap)
                 .setSeed(infoUi->model.seed)
                 .setRoughness(infoUi->model.roughness)
                 .setInitialRandomness(1.0)
                 .build();
         } else if (algo == 1) {
-            mist::PerlinNoise2 perlin;
-            mist::OctaveNoise2 noise(perlin);
-            noise.setNumOctaves(6).setRoughness(infoUi->model.roughness);
-            mist::NoiseTextureBuilder2(groundMap, noise)
-                .setNoiseScale(infoUi->model.noiseScale)
-                .setXScale(infoUi->model.xyScale)
-                .setYScale(infoUi->model.xyScale)
-                .build();
+            NoiseSettings ns {
+                .numOctaves = infoUi->model.numOctaves,
+                .xyScale = infoUi->model.xyScale,
+                .noiseScale = infoUi->model.noiseScale,
+                .roughness = infoUi->model.roughness,
+            };
+
+            WaterSettings ws {
+                .biome = 3,
+                .routeCost = infoUi->model.routeCost,
+                .riverMaxSize = infoUi->model.riverMaxSize,
+                .riverDepth = infoUi->model.riverDepth,
+            };
+
+            terraform.setSeed(infoUi->model.seed)
+                .setNoiseSettings(ns) //
+                .setWaterSettings(ws) //
+                .generate();
+
         } else if (algo == 2) {
             mist::PerlinNoise2 perlin;
             mist::OctaveNoise2 octaves(perlin);
@@ -308,19 +404,16 @@ private:
                 .build();
         }
 
-        river();
+        // river();
     }
 
     void river()
     {
         const auto riverRoute = findRiverRoute(MAP_SIZE / 2);
         if (!riverRoute.empty()) {
-            spdlog::info("Found river route: {} to {}", riverRoute.front(), riverRoute.back());
             const auto bedLevel = groundMap.at(riverRoute.front());
             makeRiverAlong(riverRoute, infoUi->model.riverMaxSize, bedLevel,
                            bedLevel + infoUi->model.riverDepth);
-        } else {
-            spdlog::info("No suitable river route found");
         }
     }
 
@@ -364,10 +457,7 @@ private:
                 if ((start - end).length() < minDistance) continue; // require minumum distance
                 if (start.x == end.x || start.y == end.y) continue; // skip straight lines
 
-                if (!router.canReach(end)) {
-                    spdlog::debug("From {} to {} : no route", start, end);
-                    continue;
-                }
+                if (!router.canReach(end)) continue;
 
                 return router.route(end);
             }
@@ -431,7 +521,7 @@ private:
         waterMap.fill(0);
 
         for (const auto &p0 : route) {
-            mist::LinearTransform groundToWater(-1.0, 0.75, 0.35, 1);
+            mist::LinearTransform groundToWater(-1.0, 0.75, 0.35, 1.0);
             mist::floodFill(groundMap, p0, maxDistance, waterLevel, [&](const Point2i &p) {
                 waterMap.at(p) = std::clamp(groundToWater(groundMap.at(p)), 0.0, 1.0);
             });
@@ -440,26 +530,17 @@ private:
 
     void visualizeTerrain()
     {
-        mist::LinearTransform toGroundTile(-1.0, 1.0, 0, 99);
-        mist::LinearTransform toWaterTile(0.0, 1.0, 100, 199);
-        auto                  tilePainter = [&](const mist::Point2i &p, double v) {
-            auto w = waterMap.at(p);
-            if (w > 0.01) {
-                (*tilemap)[p] = mist::roundi(toWaterTile(w));
-            } else {
-                (*tilemap)[p] = mist::roundi(toGroundTile(v));
-            }
-        };
-
-        groundMap.foreachKeyValue(tilePainter);
+        terraform.getTileMap().foreachKeyValue([&](const mist::Point2i &p, int t) {
+            (*tilemap)[p] = t;
+        });
     }
 
     void visualizeCost()
     {
         const auto minCost = min(costMap);
         const auto maxCost = max(costMap);
-        spdlog::debug("Cost range: {} - {}", minCost, maxCost);
-        mist::LinearTransform toWaterTile(minCost, maxCost, 100, 199);
+
+        mist::LinearTransform toWaterTile(minCost, maxCost, 100.0, 199.0);
         auto                  tilePainter = [&](const mist::Point2i &p, double v) {
             (*tilemap)[p] = mist::roundi(toWaterTile(v));
         };
@@ -473,21 +554,6 @@ private:
 auto mistDemo() -> void
 {
     using sky::Sky;
-
-    // mist::Matrix<float> testm(3, 3);
-    // testm.at(0, 0) = 3;
-    // testm.at(1, 0) = 2;
-    // testm.at(2, 0) = 2;
-
-    // testm.at(0, 1) = 2;
-    // testm.at(1, 1) = 4;
-    // testm.at(2, 1) = 0;
-
-    // testm.at(0, 2) = 1;
-    // testm.at(1, 2) = 1;
-    // testm.at(2, 2) = 1;
-    // mist::AStar router(testm);
-    // router.calculate(mist::Point2i { 2, 1 });
 
     Sky::initWindow("Mist Demo", 1400, 1000);
     DemoAssets    assets(TILE_SIZE);

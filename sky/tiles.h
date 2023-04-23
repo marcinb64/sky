@@ -33,11 +33,10 @@ private:
 class TilesetBuilder
 {
 public:
-    TilesetBuilder(int tileSize_, int numTiles_);
+    TilesetBuilder(int tileSize_);
 
     Tileset build();
-
-    [[nodiscard]] SDL_Renderer *getRenderer() const noexcept { return renderer.get(); }
+    Tileset update();
 
     /**
      * @brief Tile Painer function for generating tile sequences with generateSequence()
@@ -55,15 +54,25 @@ public:
      */
     using TilePainter = std::function<void(SDL_Renderer *renderer, SDL_Rect *rect, int index)>;
 
-    TilesetBuilder &generateSequence(int startingTile, int count, const TilePainter painter);
-    TilesetBuilder &generateTile(int tile, const TilePainter painter);
+    TilesetBuilder &addSequence(int count, const TilePainter &painter);
+    TilesetBuilder &addTile(const TilePainter &painter);
+
+    auto getRenderer() { return renderer.get(); }
+    auto drawTile(int tileId, int painterArg, const TilePainter &painter) -> void;
 
 private:
     int tileSize;
-    int numTiles;
+    int numTiles {0};
 
-    Surface                                        surface;
+    std::unique_ptr<Surface> surface;
     std::unique_ptr<SDL_Renderer, RendererDeleter> renderer;
+
+    struct Node {
+        int         count;
+        TilePainter painter;
+    };
+
+    std::vector<Node> nodes;
 };
 
 namespace TilePainters
@@ -71,7 +80,8 @@ namespace TilePainters
 using TileToColor = std::function<SDLColor(int)>;
 
 TilesetBuilder::TilePainter plainColor(const TileToColor f);
-TilesetBuilder::TilePainter plainColor(const SDLColor color);
+TilesetBuilder::TilePainter plainColor(const SDLColor &color);
+TilesetBuilder::TilePainter plainColor(const HSVRamp &color);
 auto hsvValueRamp(float hue, float sat, float fromValue, float toValue, int numSteps)
     -> TilesetBuilder::TilePainter;
 } // namespace TilePainters

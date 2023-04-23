@@ -2,6 +2,7 @@
 #define COLOR_H_
 
 #include <SDL.h>
+#include <functional>
 
 namespace sky
 {
@@ -12,7 +13,7 @@ struct SDLColor {
     Uint8 b;
     Uint8 a;
 
-    SDL_Color toSdl() const { return SDL_Color { r, g, b, a }; }
+    SDL_Color toSdl() const { return SDL_Color {r, g, b, a}; }
 };
 
 struct Hue {
@@ -40,6 +41,33 @@ struct ColorMask {
 
 SDLColor hsv(float hue, float saturation, float brightness);
 
-}
+struct HSV {
+    float hue;
+    float sat;
+    float val;
+};
+
+class HSVRamp
+{
+    using IndexToColor = std::function<SDLColor(int)>;
+
+public:
+    HSVRamp(int numSteps);
+    auto from(const HSV &color) -> HSVRamp &;
+    auto to(const HSV &color) -> HSVRamp &;
+
+    auto get(int i) const -> SDLColor;
+    auto asFunc() const -> IndexToColor;
+
+private:
+    int numSteps;
+    HSV startValues;
+    HSV endValues;
+
+    mutable IndexToColor indexToColor {nullptr};
+    auto                 build() const -> void;
+};
+
+} // namespace sky
 
 #endif

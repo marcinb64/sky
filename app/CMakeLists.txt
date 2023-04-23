@@ -12,6 +12,7 @@ add_executable(${MODULE_ID}
   tile_demo/TileEditor.cpp
   tile_demo/Chunk.cpp
   mist/MistDemo.cpp
+  mist/Terraform.cpp
   )
 
 target_link_libraries(${MODULE_ID} PRIVATE
