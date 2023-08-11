@@ -1,10 +1,10 @@
 #ifndef CHUNK_H_
 #define CHUNK_H_
 
-#include <Point.h>
+#include <mist/Point.h>
 
-#include <array>
 #include <fmt/format.h>
+#include <array>
 #include <initializer_list>
 #include <map>
 #include <set>

@@ -1,20 +1,19 @@
 #include "MistDemo.h"
 #include "DemoWidgets.h"
-
 #include "Terraform.h"
 
-#include <MapTools.h>
-#include <Noise.h>
-#include <moremath.h>
+#include <Sky.h>
+#include <SkyUi.h>
+#include <Tiles.h>
 
-#include <Value.h>
-#include <map>
-#include <sky.h>
-#include <skyui.h>
+#include <mist/MapTools.h>
+#include <mist/Noise.h>
+#include <mist/moremath.h>
+#include <mist/Value.h>
+
 #include <spdlog/spdlog.h>
-
+#include <map>
 #include <random>
-#include <tiles.h>
 
 using namespace demo;
 using Point2f = mist::Point2f;

@@ -3,8 +3,8 @@
 
 #include "Chunk.h"
 
-#include <sky.h>
-#include <tiles.h>
+#include <Sky.h>
+#include <Tiles.h>
 
 #include <memory>
 

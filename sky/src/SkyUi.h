@@ -2,10 +2,10 @@
 #define SKY_UI_H_
 
 #include "Color.h"
-#include "sky.h"
-#include <Point.h>
+#include "Sky.h"
+#include <mist/Point.h>
 
-#include <SDL_ttf.h>
+#include <SDL2/SDL_ttf.h>
 #include <memory>
 #include <string>
 #include <vector>

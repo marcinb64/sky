@@ -7,10 +7,3 @@
   - [ ] Cmake toolchain file / cross compile
 
 * Notes
-** Configure and build
-   mkdir -p build/conan
-   cd build/conan
-   conan install ../.. --build=missing
-   cd ..
-   cmake ..
-   cmake --build .

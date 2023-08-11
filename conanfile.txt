@@ -1,11 +1,13 @@
 [requires]
-spdlog/1.10.0
-catch2/3.1.0
-sdl/2.26.1
+mist/0.1.7
+sdl/2.26.5
 sdl_ttf/2.20.1
 sdl_image/2.0.5
-libpng/1.6.37
-mist/0.1.7@marcin/testing
+libpng/1.6.40
+spdlog/1.10.0
+catch2/3.1.0
 
 [generators]
-cmake_find_package
+CMakeDeps
+CMakeToolchain
+

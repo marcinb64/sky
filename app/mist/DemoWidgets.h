@@ -1,10 +1,10 @@
 #ifndef DEMOWIDGETS_H_
 #define DEMOWIDGETS_H_
 
-#include <Value.h>
-#include <sky.h>
-#include <skyui.h>
-#include <tiles.h>
+#include <mist/Value.h>
+#include <Sky.h>
+#include <SkyUi.h>
+#include <Tiles.h>
 
 #include <spdlog/spdlog.h>
 

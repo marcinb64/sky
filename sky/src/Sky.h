@@ -1,7 +1,7 @@
 #ifndef SDLPP_H_
 #define SDLPP_H_
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <exception>
 #include <memory>
 #include <string>

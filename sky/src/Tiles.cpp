@@ -1,10 +1,10 @@
-#include "tiles.h"
+#include "Tiles.h"
 #include "Color.h"
+#include <mist/moremath.h>
 
 #include <SDL_image.h>
-#include <cassert>
-#include <moremath.h>
 #include <spdlog/spdlog.h>
+#include <cassert>
 
 using namespace sky;
 

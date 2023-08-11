@@ -2,16 +2,17 @@
 #include "TileEditor.h"
 
 #include <Color.h>
-#include <Matrix.h>
-#include <Noise.h>
-#include <moremath.h>
-#include <sky.h>
-#include <skyui.h>
-#include <tiles.h>
+#include <Sky.h>
+#include <SkyUi.h>
+#include <Tiles.h>
 
+#include <mist/Matrix.h>
+#include <mist/Noise.h>
+#include <mist/moremath.h>
+
+#include <spdlog/spdlog.h>
 #include <array>
 #include <functional>
-#include <spdlog/spdlog.h>
 
 using namespace demo;
 

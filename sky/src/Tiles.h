@@ -2,8 +2,8 @@
 #define SDLPP_TILES_H_
 
 #include "Color.h"
-#include "sky.h"
-#include <Point.h>
+#include "Sky.h"
+#include <mist/Point.h>
 
 #include <functional>
 #include <memory>

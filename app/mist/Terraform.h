@@ -1,9 +1,9 @@
 #ifndef TERRAFORM_H_
 #define TERRAFORM_H_
 
-#include <Matrix.h>
-#include <Point.h>
-#include <moremath.h>
+#include <mist/Matrix.h>
+#include <mist/Point.h>
+#include <mist/moremath.h>
 #include <list>
 
 namespace demo

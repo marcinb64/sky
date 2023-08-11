@@ -1,8 +1,8 @@
 #include "Terraform.h"
 
-#include <MapTools.h>
-#include <Noise.h>
-#include <moremath.h>
+#include <mist/MapTools.h>
+#include <mist/Noise.h>
+#include <mist/moremath.h>
 
 #include <random>
 

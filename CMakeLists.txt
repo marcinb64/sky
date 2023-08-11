@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
-cmake_policy(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 
 # Project definition
 project(
@@ -8,7 +7,6 @@ project(
     LANGUAGES CXX)
 
 # Build customization
-set(CMAKE_BUILD_TYPE Debug)
 option(WARNINGS_AS_ERRORS "Treat compiler warnings as errors" On)
 option(ENABLE_CLANG_TIDY "Run clang-tidy during build" Off)
 option(ENABLE_SANITIZERS "Enable sanitizers" Off)
@@ -29,14 +27,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CTest)
 include(StaticAnalysis.cmake)
 
-# Path to conan-installed libraries
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR}/conan)
-list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR}/conan)
-
 #
 # Project structure
 #
-include_directories(.)
-
 add_subdirectory(app)
 add_subdirectory(sky)

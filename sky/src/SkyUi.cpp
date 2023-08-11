@@ -1,7 +1,7 @@
-#include "skyui.h"
+#include "SkyUi.h"
 
-#include <SDL.h>
-#include <SDL_ttf.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <spdlog/spdlog.h>
 
 using namespace sky;
@@ -84,9 +84,8 @@ void Label::measure(const Ui &context)
 
 Texture Label::render(Ui &context)
 {
-    if (text.empty()) text = " ";
     if (font == nullptr) font = context.getDefaultFont();
-    return font->renderSolid(text, foregroundColor);
+    return font->renderSolid(text.empty() ? text : std::string(" "), foregroundColor);
 }
 
 /* -------------------------------------------------------------------------- */

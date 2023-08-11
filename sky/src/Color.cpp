@@ -1,7 +1,7 @@
 #include "Color.h"
 
+#include <mist/moremath.h>
 #include <cmath>
-#include <moremath.h>
 
 using namespace sky;
 

@@ -1,8 +1,8 @@
-#include "sky.h"
+#include "Sky.h"
 #include "Color.h"
 
-#include <SDL.h>
-#include <SDL_ttf.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 #include <SDL_image.h>
 #include <cmath>
 #include <memory>
