@@ -19,7 +19,7 @@ class HelloConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
 
     # Sources are located in the same place as this recipe, copy them to the recipe
-    exports_sources = "CMakeLists.txt", "CompilerWarnings.cmake", "StaticAnalysis.cmake", "sky/*", "app/*"
+    exports_sources = "CMakeLists.txt", "*.cmake", "sky/*", "app/*"
     generators = "CMakeDeps"
 
     def config_options(self):
@@ -43,7 +43,7 @@ class HelloConan(ConanFile):
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure(variables={ "BUILD_TESTING" : "Off", "ENABLE_SANITIZERS" : "Off" })
+        cmake.configure(variables={ "ENABLE_SANITIZERS" : "Off" })
         cmake.build(target='sky')
 
     def package(self):

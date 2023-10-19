@@ -1,9 +1,3 @@
 * Version 0.1
-  - [X] Basic build with conan
-  - [X] Unit tests
-  - [ ] Exporting and importing conan libs
-  - [ ] Cmake presets
-  - [ ] Cmake different sanitizers
-  - [ ] Cmake toolchain file / cross compile
 
 * Notes

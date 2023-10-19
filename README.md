@@ -14,7 +14,14 @@
 
 ## Build
 
-    mkdir -p build
-    conan install --build=missing --output-folder=build conanfile.txt -s build_type=Debug
+Example build commands, using conan profiles `linux-debug` and `linux-release`.
+
+    conan install conanfile.py --build=missing --profile linux-debug
+    conan install conanfile.py --build=missing --profile linux-release
     cmake --preset conan-debug
-    cmake --build build
+    cmake --build build/Debug
+
+    conan create . --profile=linux-release
+
+
+

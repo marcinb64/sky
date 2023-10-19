@@ -7,18 +7,17 @@ find_package(spdlog REQUIRED)
 find_package(mist REQUIRED)
 
 add_executable(${MODULE_ID}
-  main.cpp
-  tile_demo/tiledemo.cpp
-  tile_demo/TileEditor.cpp
-  tile_demo/Chunk.cpp
-  mist/MistDemo.cpp
-  mist/Terraform.cpp
-  )
+    main.cpp
+    tile_demo/tiledemo.cpp
+    tile_demo/TileEditor.cpp
+    tile_demo/Chunk.cpp
+    mist/MistDemo.cpp
+    mist/Terraform.cpp)
 
-target_link_libraries(${MODULE_ID} PRIVATE
-  project_warnings
-  project_options
-  sky
-  mist::mist
-  spdlog::spdlog
-  )
+target_link_libraries(${MODULE_ID} 
+    PRIVATE
+        project_warnings
+        project_options
+        sky
+        mist::mist
+        spdlog::spdlog)
