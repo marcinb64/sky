@@ -32,5 +32,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(CTest)
 
 # Project structure
-add_subdirectory(app)
 add_subdirectory(sky)
+add_subdirectory(demo)
+

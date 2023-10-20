@@ -24,7 +24,7 @@ public:
     Font(Font &&other);
     Font &operator=(Font &&other);
 
-    Texture renderSolid(const std::string text, SDL_Color color) const;
+    Texture       renderSolid(const std::string text, SDL_Color color) const;
     mist::Point2i measure(const std::string text) const;
 
 private:
@@ -48,50 +48,29 @@ public:
 
 /* -------------------------------------------------------------------------- */
 
-/*
-template <typename W, typename B>
-std::shared_ptr<W> build(B block)
-{
-    auto ptr = std::make_shared<W>();
-    block(*ptr.get());
-    return ptr;
-}
-*/
-
 class Widget : public UiDrawable
 {
 public:
     void draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) override;
 
-    // TODO add getters
-    void setFont(const std::shared_ptr<Font> font_) noexcept
-    {
-        font = font_;
-    }
+    void               setFont(const std::shared_ptr<Font> font_) noexcept { font = font_; }
+    [[nodiscard]] auto getFont() const noexcept -> std::shared_ptr<Font> { return font; }
 
-    void setForegroundColor(SDL_Color foregroundColor_) noexcept
-    {
-        foregroundColor = foregroundColor_;
-    }
+    void               setForegroundColor(SDL_Color color) noexcept { foregroundColor = color; }
+    [[nodiscard]] auto getForegroundColor() const noexcept -> SDL_Color { return foregroundColor; }
 
-    void setBackgroundColor(SDL_Color backgroundColor_) noexcept
-    {
-        backgroundColor = backgroundColor_;
-    }
+    void setBackgroundColor(SDL_Color color) noexcept { backgroundColor = color; }
+    [[nodiscard]] auto getBackgroundColor() const noexcept -> SDL_Color { return backgroundColor; }
 
-    void invalidate()
-    {
-        valid = false;
-    }
+    void invalidate() { valid = false; }
 
 protected:
     std::shared_ptr<Font> font;
-    SDL_Color foregroundColor {255, 255, 255, 255};
-    SDL_Color backgroundColor {0, 0, 0, 255};
+    SDL_Color             foregroundColor {255, 255, 255, 255};
+    SDL_Color             backgroundColor {0, 0, 0, 255};
 
     Texture texture;
 
-    // TODO locking
     virtual Texture render(Ui &context) = 0;
 
 private:
@@ -107,7 +86,7 @@ struct WidgetSpec {
 
 struct LabelSpec : public WidgetSpec {
     struct WidgetSpec widget;
-    std::string text;
+    std::string       text;
 };
 
 class Label : public Widget
@@ -116,8 +95,7 @@ public:
     Label(const std::string text = "");
     Label(const char *text);
 
-    template <class S>
-    Label(const S &spec)
+    template <class S> Label(const S &spec)
     {
         if constexpr (requires { spec.text; }) text = spec.text;
         if constexpr (requires { spec.width; }) width = spec.width;
@@ -147,11 +125,11 @@ public:
     LinearLayout(int width, int height) noexcept;
 
     LinearLayout &operator+=(UiDrawable *d);
-    void draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) override;
-    void measure(const Ui &context) override;
+    void          draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) override;
+    void          measure(const Ui &context) override;
 
 private:
-    bool vertical {true};
+    bool                      vertical {true};
     std::vector<UiDrawable *> contents;
 };
 
@@ -164,18 +142,12 @@ public:
     void draw(SDL_Renderer *renderer, int x, int y, double angle) override;
     void measure();
 
-    [[nodiscard]] auto getDefaultFont() const noexcept
-    {
-        return defaultFont;
-    }
+    [[nodiscard]] auto getDefaultFont() const noexcept { return defaultFont; }
 
-    void setRoot(std::shared_ptr<UiDrawable> root_) noexcept
-    {
-        root = root_;
-    }
+    void setRoot(std::shared_ptr<UiDrawable> root_) noexcept { root = root_; }
 
 private:
-    std::shared_ptr<Font> defaultFont;
+    std::shared_ptr<Font>       defaultFont;
     std::shared_ptr<UiDrawable> root;
 };
 

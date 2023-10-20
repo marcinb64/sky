@@ -85,7 +85,7 @@ void Label::measure(const Ui &context)
 Texture Label::render(Ui &context)
 {
     if (font == nullptr) font = context.getDefaultFont();
-    return font->renderSolid(text.empty() ? text : std::string(" "), foregroundColor);
+    return font->renderSolid(text.empty() ? std::string(" "): text, foregroundColor);
 }
 
 /* -------------------------------------------------------------------------- */

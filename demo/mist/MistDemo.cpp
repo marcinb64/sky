@@ -342,14 +342,6 @@ private:
 
     void onSettingsChanged()
     {
-        /*         tilemap->fill(0);
-                for (int i = 0; i < 8; i++) {
-                    (*tilemap)[{i, 1}] = assets.getBiomeTile(0, (double)i / 7.0);
-                    (*tilemap)[{i, 2}] = assets.getBiomeTile(1, (double)i / 7.0);
-                    (*tilemap)[{i, 3}] = assets.getBiomeTile(2, (double)i / 7.0);
-                }
-                return;
-         */
         generateNoiseMap();
         if (viewMode == 0) visualizeTerrain();
         if (viewMode == 1) visualizeCost();
