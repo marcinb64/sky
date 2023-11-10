@@ -7,7 +7,7 @@
 namespace sky
 {
 
-struct SDLColor {
+struct Color {
     Uint8 r;
     Uint8 g;
     Uint8 b;
@@ -39,7 +39,7 @@ struct ColorMask {
 #endif
 };
 
-SDLColor hsv(float hue, float saturation, float brightness);
+Color hsv(float hue, float saturation, float brightness);
 
 struct HSV {
     float hue;
@@ -49,14 +49,14 @@ struct HSV {
 
 class HSVRamp
 {
-    using IndexToColor = std::function<SDLColor(int)>;
+    using IndexToColor = std::function<Color(int)>;
 
 public:
     HSVRamp(int numSteps);
     auto from(const HSV &color) -> HSVRamp &;
     auto to(const HSV &color) -> HSVRamp &;
 
-    auto get(int i) const -> SDLColor;
+    auto get(int i) const -> Color;
     auto asFunc() const -> IndexToColor;
 
 private:

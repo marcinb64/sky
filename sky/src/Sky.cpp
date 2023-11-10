@@ -1,6 +1,8 @@
 #include "Sky.h"
 #include "Color.h"
 
+#include <mist/Point.h>
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL_image.h>
@@ -29,9 +31,7 @@ Sky &Sky::getInstance()
     return *instance;
 }
 
-Sky::Sky()
-    : width(0)
-    , height(0)
+Sky::Sky() : width(0), height(0)
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) throw SDLError("SDL_Init");
     if (TTF_Init() < 0) throw TTFError("TTF_Init");
@@ -40,7 +40,6 @@ Sky::Sky()
 
 Sky::~Sky()
 {
-    if (renderer) SDL_DestroyRenderer(renderer);
     if (primarySurface) SDL_FreeSurface(primarySurface);
     if (window) SDL_DestroyWindow(window);
     TTF_Quit();
@@ -73,7 +72,7 @@ void Sky::mainLoop(float fpsCap)
 void Sky::setScene(Scene *scene)
 {
     activeScene = scene;
-    activeScene->onLoad();
+    activeScene->load();
 }
 
 SDL_Renderer *Sky::currentRenderer()
@@ -83,10 +82,9 @@ SDL_Renderer *Sky::currentRenderer()
 
 void Sky::createWindow(const char *name)
 {
-    SDL_CreateWindowAndRenderer(width, height,
-                                SDL_WINDOW_RESIZABLE, &window, &renderer);
+    SDL_CreateWindowAndRenderer(width, height, SDL_WINDOW_RESIZABLE, &window, &renderer.renderer);
     if (window == nullptr) throw SDLError("Create SDL Window");
-    if (renderer == nullptr) throw SDLError("Create SDL Renderer");
+    if (renderer.renderer == nullptr) throw SDLError("Create SDL Renderer");
     SDL_SetWindowTitle(window, name);
     SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 
@@ -95,8 +93,7 @@ void Sky::createWindow(const char *name)
 
 /* -------------------------------------------------------------------------- */
 
-Surface::Surface(SDL_Surface *surface_)
-    : surface(surface_)
+Surface::Surface(SDL_Surface *surface_) : surface(surface_)
 {
 }
 
@@ -125,18 +122,42 @@ Surface &Surface::operator=(Surface &&other) noexcept
     return *this;
 }
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
-Texture::Texture(SDL_Texture *texture_, int width_, int height_)
-    : texture(texture_)
-    , width(width_)
-    , height(height_)
+Renderer::Renderer(SDL_Renderer *r) : renderer(r)
 {
 }
 
-Texture::Texture(const Surface &surface)
-    : width(surface.getWidth())
-    , height(surface.getHeight())
+Renderer::~Renderer()
+{
+    if (renderer) {
+        SDL_DestroyRenderer(renderer);
+    }
+}
+
+void Renderer::setDrawColor(const Color &color)
+{
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+}
+
+void Renderer::clear()
+{
+    SDL_RenderClear(renderer);
+}
+
+void Renderer::present()
+{
+    SDL_RenderPresent(renderer);
+}
+
+// -----------------------------------------------------------------------------
+
+Texture::Texture(SDL_Texture *texture_, int width_, int height_)
+    : texture(texture_), width(width_), height(height_)
+{
+}
+
+Texture::Texture(const Surface &surface) : width(surface.getWidth()), height(surface.getHeight())
 {
     texture = SDL_CreateTextureFromSurface(Sky::currentRenderer(), surface.get());
     if (texture == nullptr) throw SDLError("Create texture from surface");
@@ -155,102 +176,66 @@ Texture::Texture(Texture &&other) noexcept
 Texture &Texture::operator=(Texture &&other) noexcept
 {
     texture = other.texture;
+    other.texture = nullptr;
     width = other.width;
     height = other.height;
-    other.texture = nullptr;
     return *this;
 }
 
-void Texture::renderTo(SDL_Renderer *renderer, const SDL_Rect *src, const SDL_Rect *dest,
+void Texture::renderTo(Renderer &renderer, const SDL_Rect *src, const SDL_Rect *dest, double angle,
                        const SDL_RendererFlip flip) const
 {
-    SDL_RenderCopyEx(renderer, texture, src, dest, 0, nullptr, flip);
+    SDL_RenderCopyEx(renderer, texture, src, dest, angle, nullptr, flip);
 }
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
-Sprite::Sprite(const char *file)
+Font::Font(TTF_Font *font_) : font(font_)
+{
+}
+
+Font::~Font()
+{
+    if (font) TTF_CloseFont(font);
+}
+
+Texture Font::renderSolid(const std::string &text, const Color &color) const
+{
+    SDL_Surface *tmp = TTF_RenderText_Solid(font, text.c_str(), color.toSdl());
+    if (!tmp) throw TTFError("render text");
+    return Texture(Surface(tmp));
+}
+
+mist::Point2i Font::measure(const std::string text) const
+{
+    mist::Point2i ret {0, 0};
+    TTF_SizeText(font, text.c_str(), &ret.x, &ret.y);
+    return ret;
+}
+
+// -----------------------------------------------------------------------------
+
+auto Assets::loadTexture(const char *file) -> std::shared_ptr<Texture>
 {
     auto *tmp = IMG_Load(file);
     if (tmp == nullptr) throw SDLError("Load image");
 
-    width = tmp->w;
-    height = tmp->h;
-    texture = SDL_CreateTextureFromSurface(Sky::currentRenderer(), tmp);
+    auto texture = std::make_shared<Texture>(
+        SDL_CreateTextureFromSurface(Sky::currentRenderer(), tmp), tmp->w, tmp->h);
     SDL_FreeSurface(tmp);
     if (texture == nullptr) throw SDLError("Create image texture");
+
+    return texture;
 }
 
-Sprite::~Sprite()
+auto Assets::loadFont(const char *file, int size) -> std::shared_ptr<Font>
 {
-    if (texture) SDL_DestroyTexture(texture);
+    auto *font = TTF_OpenFont(file, size);
+    if (!font) throw TTFError("open font");
+    return std::make_shared<Font>(font);
 }
 
-void Sprite::draw(SDL_Renderer *renderer, int x, int y, double angle)
-{
-    SDL_Rect destRect {x, y, width, height};
-    SDL_RenderCopyEx(renderer, texture, nullptr, &destRect, angle, nullptr, SDL_FLIP_NONE);
-}
-
-/* -------------------------------------------------------------------------- */
-
-std::shared_ptr<Object> Object::from(std::shared_ptr<Drawable> d)
-{
-    return std::make_shared<Object>(std::move(d));
-}
-
-Object::Object(std::shared_ptr<Drawable> d)
-    : drawable(std::move(d))
-{
-}
-
-Object &Object::setDrawable(std::shared_ptr<Drawable> d)
-{
-    this->drawable = std::move(d);
-    return *this;
-}
-
-Object &Object::setPosition(int x_, int y_)
-{
-    this->x = x_;
-    this->y = y_;
-    return *this;
-}
-
-Object &Object::setHeading(double h)
-{
-    this->heading = h;
-    return *this;
-}
-
-void Object::draw(SDL_Renderer *renderer) const
-{
-    if (drawable != nullptr) drawable->draw(renderer, x, y, heading);
-}
-
-/* -------------------------------------------------------------------------- */
-
-void Scene::add(std::shared_ptr<Object> o)
-{
-    renderList.emplace_back(std::move(o));
-}
-
-void Scene::draw(SDL_Renderer *renderer)
-{
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-
-    for (auto &o : renderList) {
-        o->draw(renderer);
-    }
-
-    SDL_RenderPresent(renderer);
-}
-
-void Scene::update(float dt)
-{
-    onUpdate(dt);
-}
+// -----------------------------------------------------------------------------
 
 void Scene::processEvents()
 {
@@ -262,35 +247,4 @@ void Scene::processEvents()
         case SDL_KEYDOWN: onKeyDown(event.key); break;
         }
     }
-}
-
-/* -------------------------------------------------------------------------- */
-
-SDLError::SDLError()
-    : message(SDL_GetError())
-{
-}
-SDLError::SDLError(const char *m)
-    : message(std::string(m) + ": " + SDL_GetError())
-{
-}
-
-TTFError::TTFError()
-    : message(TTF_GetError())
-{
-}
-
-TTFError::TTFError(const char *m)
-    : message(std::string(m) + ": " + TTF_GetError())
-{
-}
-
-IMGError::IMGError()
-    : message(TTF_GetError())
-{
-}
-
-IMGError::IMGError(const char *m)
-    : message(std::string(m) + ": " + IMG_GetError())
-{
 }

@@ -7,46 +7,9 @@
 using namespace sky;
 using namespace mist;
 
-Font::Font(const char *file, int size)
-{
-    font = TTF_OpenFont(file, size);
-    if (!font) throw TTFError("open font");
-}
 
-Font::~Font()
-{
-    if (font) TTF_CloseFont(font);
-}
 
-Font::Font(Font &&other)
-{
-    *this = std::move(other);
-}
-
-Font &Font::operator=(Font &&other)
-{
-    font = other.font;
-    other.font = nullptr;
-    return *this;
-}
-
-Texture Font::renderSolid(const std::string text, SDL_Color color) const
-{
-    SDL_Surface *tmp = TTF_RenderText_Solid(font, text.c_str(), color);
-    if (!tmp) throw TTFError("render text");
-    return Texture(Surface(tmp));
-}
-
-Point2i Font::measure(const std::string text) const
-{
-    Point2i ret {0, 0};
-    TTF_SizeText(font, text.c_str(), &ret.x, &ret.y);
-    return ret;
-}
-
-/* -------------------------------------------------------------------------- */
-
-void Widget::draw(Ui &context, SDL_Renderer *renderer, int x, int y, double)
+void Widget::draw(Ui &context, Renderer &renderer, int x, int y, double)
 {
     if (!valid) {
         texture = render(context);
@@ -102,7 +65,7 @@ LinearLayout &LinearLayout::operator+=(UiDrawable *d)
     return *this;
 }
 
-void LinearLayout::draw(Ui &context, SDL_Renderer *renderer, int x0, int y0, double angle)
+void LinearLayout::draw(Ui &context, Renderer &renderer, int x0, int y0, double angle)
 {
     int x = x0;
     int y = y0;
@@ -147,7 +110,7 @@ void Ui::measure()
     root->measure(*this);
 }
 
-void Ui::draw(SDL_Renderer *renderer, int x, int y, double angle)
+void Ui::draw(Renderer &renderer, int x, int y, double angle)
 {
     if (root == nullptr) return;
     root->draw(*this, renderer, x, y, angle);

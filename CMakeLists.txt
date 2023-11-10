@@ -34,4 +34,3 @@ include(CTest)
 # Project structure
 add_subdirectory(sky)
 add_subdirectory(demo)
-

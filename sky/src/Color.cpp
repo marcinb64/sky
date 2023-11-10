@@ -5,7 +5,7 @@
 
 using namespace sky;
 
-SDLColor sky::hsv(float hue, float saturation, float brightness)
+Color sky::hsv(float hue, float saturation, float brightness)
 {
     hue = hue / 360.0f;
     Uint8 r = 0, g = 0, b = 0;
@@ -51,7 +51,7 @@ SDLColor sky::hsv(float hue, float saturation, float brightness)
         }
     }
 
-    return SDLColor {r, g, b, 0xff};
+    return Color {r, g, b, 0xff};
 }
 
 /* -------------------------------------------------------------------------- */
@@ -83,7 +83,7 @@ auto HSVRamp::build() const -> void
     };
 }
 
-auto HSVRamp::get(int index) const -> SDLColor
+auto HSVRamp::get(int index) const -> Color
 {
     if (!indexToColor) build();
     return indexToColor(index);

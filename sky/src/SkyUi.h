@@ -3,6 +3,7 @@
 
 #include "Color.h"
 #include "Sky.h"
+#include "SkyEngine.h"
 #include <mist/Point.h>
 
 #include <SDL2/SDL_ttf.h>
@@ -13,33 +14,13 @@
 namespace sky
 {
 
-class Font
-{
-public:
-    Font(const char *file, int size);
-    ~Font();
-
-    Font(const Font &other) = delete;
-    Font &operator=(const Font &other) = delete;
-    Font(Font &&other);
-    Font &operator=(Font &&other);
-
-    Texture       renderSolid(const std::string text, SDL_Color color) const;
-    mist::Point2i measure(const std::string text) const;
-
-private:
-    TTF_Font *font;
-};
-
-/* -------------------------------------------------------------------------- */
-
 class Ui;
 
 class UiDrawable
 {
 public:
     virtual ~UiDrawable() = default;
-    virtual void draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) = 0;
+    virtual void draw(Ui &context, Renderer &renderer, int x, int y, double angle) = 0;
     virtual void measure(const Ui &context) = 0;
 
     int width {0};
@@ -51,23 +32,23 @@ public:
 class Widget : public UiDrawable
 {
 public:
-    void draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) override;
+    void draw(Ui &context, Renderer &renderer, int x, int y, double angle) override;
 
     void               setFont(const std::shared_ptr<Font> font_) noexcept { font = font_; }
     [[nodiscard]] auto getFont() const noexcept -> std::shared_ptr<Font> { return font; }
 
-    void               setForegroundColor(SDL_Color color) noexcept { foregroundColor = color; }
-    [[nodiscard]] auto getForegroundColor() const noexcept -> SDL_Color { return foregroundColor; }
+    void               setForegroundColor(Color color) noexcept { foregroundColor = color; }
+    [[nodiscard]] auto getForegroundColor() const noexcept -> Color { return foregroundColor; }
 
-    void setBackgroundColor(SDL_Color color) noexcept { backgroundColor = color; }
-    [[nodiscard]] auto getBackgroundColor() const noexcept -> SDL_Color { return backgroundColor; }
+    void               setBackgroundColor(Color color) noexcept { backgroundColor = color; }
+    [[nodiscard]] auto getBackgroundColor() const noexcept -> Color { return backgroundColor; }
 
     void invalidate() { valid = false; }
 
 protected:
     std::shared_ptr<Font> font;
-    SDL_Color             foregroundColor {255, 255, 255, 255};
-    SDL_Color             backgroundColor {0, 0, 0, 255};
+    Color                 foregroundColor {255, 255, 255, 255};
+    Color                 backgroundColor {0, 0, 0, 255};
 
     Texture texture;
 
@@ -125,7 +106,7 @@ public:
     LinearLayout(int width, int height) noexcept;
 
     LinearLayout &operator+=(UiDrawable *d);
-    void          draw(Ui &context, SDL_Renderer *renderer, int x, int y, double angle) override;
+    void          draw(Ui &context, Renderer &renderer, int x, int y, double angle) override;
     void          measure(const Ui &context) override;
 
 private:
@@ -139,7 +120,7 @@ class Ui : public Drawable
 {
 public:
     Ui(std::shared_ptr<Font> defaultFont);
-    void draw(SDL_Renderer *renderer, int x, int y, double angle) override;
+    void draw(Renderer &renderer, int x, int y, double angle) override;
     void measure();
 
     [[nodiscard]] auto getDefaultFont() const noexcept { return defaultFont; }

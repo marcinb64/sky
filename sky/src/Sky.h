@@ -1,10 +1,14 @@
 #ifndef SDLPP_H_
 #define SDLPP_H_
 
+#include "Color.h"
+#include "SkyError.h"
+
+#include <mist/Point.h>
+
 #include <SDL2/SDL.h>
-#include <exception>
+#include <SDL2/SDL_ttf.h>
 #include <memory>
-#include <string>
 #include <vector>
 
 namespace sky
@@ -14,12 +18,43 @@ class Scene;
 class Object;
 class Drawable;
 
+class Renderer
+{
+public:
+    Renderer() = default;
+    Renderer(SDL_Renderer *);
+    ~Renderer();
+    Renderer(const Renderer &other) = delete;
+    Renderer &operator=(const Renderer &other) = delete;
+    Renderer(Renderer &&other) = default;
+    Renderer &operator=(Renderer &&other) = default;
+
+    operator SDL_Renderer *() { return renderer; }
+
+    void setDrawColor(const Color &color);
+    void clear();
+    void present();
+
+private:
+    friend class Sky;
+    SDL_Renderer *renderer = nullptr;
+};
+
+struct RendererDeleter {
+    void operator()(SDL_Renderer *r)
+    {
+        if (r) SDL_DestroyRenderer(r);
+    }
+};
+
+// -----------------------------------------------------------------------------
+
 class Sky
 {
 public:
     static void initWindow(const char *title, int width, int height);
 
-    static Sky &getInstance();
+    static Sky          &getInstance();
     static SDL_Renderer *currentRenderer();
 
     Sky();
@@ -35,19 +70,19 @@ public:
 
 private:
     static std::unique_ptr<Sky> instance;
-    Scene *activeScene = nullptr;
+    Scene                      *activeScene = nullptr;
 
     int width;
     int height;
 
-    SDL_Window *window = nullptr;
-    SDL_Renderer *renderer = nullptr;
+    SDL_Window  *window = nullptr;
+    Renderer     renderer;
     SDL_Surface *primarySurface = nullptr;
 
     void createWindow(const char *name);
 };
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
 class Surface
 {
@@ -61,25 +96,16 @@ public:
     Surface(Surface &&other) noexcept;
     Surface &operator=(Surface &&other) noexcept;
 
-    [[nodiscard]] SDL_Surface *get() const noexcept
-    {
-        return surface;
-    }
+    [[nodiscard]] SDL_Surface *get() const noexcept { return surface; }
 
-    [[nodiscard]] int getWidth() const noexcept
-    {
-        return surface->w;
-    }
-    [[nodiscard]] int getHeight() const noexcept
-    {
-        return surface->h;
-    }
+    [[nodiscard]] int getWidth() const noexcept { return surface->w; }
+    [[nodiscard]] int getHeight() const noexcept { return surface->h; }
 
 private:
     SDL_Surface *surface;
 };
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
 class Texture
 {
@@ -94,39 +120,41 @@ public:
     Texture(Texture &&other) noexcept;
     Texture &operator=(Texture &&other) noexcept;
 
-    [[nodiscard]] SDL_Texture *get() const
-    {
-        return texture;
-    }
+    [[nodiscard]] SDL_Texture *get() const { return texture; }
 
-    [[nodiscard]] int getWidth() const noexcept
-    {
-        return width;
-    }
-    [[nodiscard]] int getHeight() const noexcept
-    {
-        return height;
-    }
+    [[nodiscard]] int getWidth() const noexcept { return width; }
+    [[nodiscard]] int getHeight() const noexcept { return height; }
 
-    void renderTo(SDL_Renderer *renderer, const SDL_Rect *src, const SDL_Rect *dest,
+    void renderTo(Renderer &renderer, const SDL_Rect *src, const SDL_Rect *dest, double angle = 0,
                   const SDL_RendererFlip flip = SDL_FLIP_NONE) const;
 
 private:
     SDL_Texture *texture {nullptr};
-    int width {0};
-    int height {0};
+    int          width {0};
+    int          height {0};
 };
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
-struct RendererDeleter {
-    void operator()(SDL_Renderer *r)
-    {
-        if (r) SDL_DestroyRenderer(r);
-    }
+class Font
+{
+public:
+    Font(TTF_Font *font);
+    ~Font();
+
+    Font(const Font &other) = delete;
+    Font &operator=(const Font &other) = delete;
+    Font(Font &&other) = default;
+    Font &operator=(Font &&other) = default;
+
+    Texture       renderSolid(const std::string &text, const Color &color) const;
+    mist::Point2i measure(const std::string text) const;
+
+private:
+    TTF_Font *font;
 };
 
-/* -------------------------------------------------------------------------- */
+// -----------------------------------------------------------------------------
 
 class Scene
 {
@@ -138,154 +166,30 @@ public:
     Scene &operator=(const Scene &) = default;
     Scene &operator=(Scene &&) = default;
 
-    [[nodiscard]] bool isAlive() const
-    {
-        return alive;
-    }
+    [[nodiscard]] bool isAlive() const { return alive; }
 
-    virtual void onLoad() {}
-
-    void kill()
-    {
-        alive = false;
-    }
-
-    void add(std::shared_ptr<Object> d);
-    void draw(SDL_Renderer *renderer);
-    void update(float dt);
+    void load() { onLoad(); }
+    void kill() { alive = false; }
+    void draw(Renderer &renderer) { onDraw(renderer); }
+    void update(float dt) { onUpdate(dt); }
     void processEvents();
 
 protected:
-    virtual void onKeyDown(const SDL_KeyboardEvent &) {}
+    virtual void onLoad() {}
+    virtual void onDraw(Renderer &) {}
     virtual void onUpdate(float) {}
+    virtual void onKeyDown(const SDL_KeyboardEvent &) {}
 
 private:
     bool alive {true};
-
-    std::vector<std::shared_ptr<Object>> renderList;
 };
-
-/* -------------------------------------------------------------------------- */
-
-class Drawable
-{
-public:
-    Drawable() = default;
-    Drawable(const Drawable &) = default;
-    Drawable(Drawable &&) = default;
-    Drawable &operator=(const Drawable &) = default;
-    Drawable &operator=(Drawable &&) = default;
-    virtual ~Drawable() = default;
-
-    virtual void draw(SDL_Renderer *renderer, int x, int y, double angle) = 0;
-};
-
-/* -------------------------------------------------------------------------- */
-
-class Object
-{
-public:
-    static std::shared_ptr<Object> from(std::shared_ptr<Drawable> d);
-
-    Object() = default;
-    explicit Object(std::shared_ptr<Drawable> d);
-
-    Object &setDrawable(std::shared_ptr<Drawable> d);
-    Object &setPosition(int x, int y);
-    Object &setHeading(double a);
-
-    void draw(SDL_Renderer *renderer) const;
-
-private:
-    int x = 0;
-    int y = 0;
-    double heading = 0;
-    std::shared_ptr<Drawable> drawable;
-};
-
-/* -------------------------------------------------------------------------- */
-
-class Sprite : public Drawable
-{
-public:
-    Sprite(const char *file);
-    ~Sprite() override;
-    Sprite(const Sprite &) = delete;
-    Sprite(Sprite &&) = default;
-    Sprite &operator=(const Sprite &) = delete;
-    Sprite &operator=(Sprite &&) = default;
-
-    void draw(SDL_Renderer *renderer, int x, int y, double angle) override;
-
-private:
-    SDL_Texture *texture;
-    int width;
-    int height;
-};
-
-/* -------------------------------------------------------------------------- */
 
 class Assets
 {
 public:
-    auto loadSprite(const char *file)
-    {
-        return std::make_shared<Sprite>(file);
-    }
+    auto loadTexture(const char *file) -> std::shared_ptr<Texture>;
+    auto loadFont(const char *file, int size) -> std::shared_ptr<Font>;
 };
-
-/* -------------------------------------------------------------------------- */
-
-class SDLError : public std::exception
-{
-public:
-    SDLError();
-    explicit SDLError(const char *m);
-
-    [[nodiscard]] const char *what() const noexcept override
-    {
-        return message.c_str();
-    }
-
-private:
-    std::string message;
-};
-
-/* -------------------------------------------------------------------------- */
-
-class TTFError : public std::exception
-{
-public:
-    TTFError();
-    explicit TTFError(const char *m);
-
-    [[nodiscard]] const char *what() const noexcept override
-    {
-        return message.c_str();
-    }
-
-private:
-    std::string message;
-};
-
-/* -------------------------------------------------------------------------- */
-
-class IMGError : public std::exception
-{
-public:
-    IMGError();
-    explicit IMGError(const char *m);
-
-    [[nodiscard]] const char *what() const noexcept override
-    {
-        return message.c_str();
-    }
-
-private:
-    std::string message;
-};
-
-/* -------------------------------------------------------------------------- */
 
 }; // namespace sky
 

@@ -29,7 +29,7 @@ Tileset::Tileset(const Surface &surface, int tileSize_)
 {
 }
 
-void Tileset::drawTile(SDL_Renderer *renderer, int tileId, SDL_Rect &dest) const
+void Tileset::drawTile(Renderer &renderer, int tileId, SDL_Rect &dest) const
 {
     auto     row = tileId / tilesPerRow;
     auto     col = tileId % tilesPerRow;
@@ -60,18 +60,17 @@ TilesetBuilder &TilesetBuilder::addTile(const TilePainter &painter)
 Tileset TilesetBuilder::build()
 {
     surface = std::make_unique<Surface>(tileSize * numTiles, tileSize, 32);
-    renderer =
-        std::unique_ptr<SDL_Renderer, RendererDeleter>(SDL_CreateSoftwareRenderer(surface->get()));
+    renderer = Renderer(SDL_CreateSoftwareRenderer(surface->get()));
     if (renderer == nullptr) throw SDLError("Create software renderer");
 
-    SDL_SetRenderDrawColor(renderer.get(), 0, 0, 0, 0xFF);
-    SDL_RenderClear(renderer.get());
+    renderer.setDrawColor(Color { 0, 0, 0, 255});
+    renderer.clear();
 
     int startingTile = 0;
     for (const auto &node : nodes) {
         for (int i = 0; i < node.count; i++) {
             SDL_Rect rect {(startingTile + i) * tileSize, 0, tileSize, tileSize};
-            node.painter(renderer.get(), &rect, i);
+            node.painter(renderer, &rect, i);
         }
         startingTile += node.count;
     }
@@ -92,23 +91,23 @@ auto TilesetBuilder::drawTile(int tileId, int painterArg, const TilePainter &pai
     //SDL_RenderClear(renderer.get());
 
     SDL_Rect rect {tileId * tileSize, 0, tileSize, tileSize};
-    painter(renderer.get(), &rect, painterArg);
+    painter(renderer, &rect, painterArg);
 }
 
 /* -------------------------------------------------------------------------- */
 
 TilesetBuilder::TilePainter TilePainters::plainColor(const TileToColor f)
 {
-    return [=](SDL_Renderer *renderer, SDL_Rect *rect, int tile) {
+    return [=](Renderer &renderer, SDL_Rect *rect, int tile) {
         auto color = f(tile);
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 0xFF);
         SDL_RenderFillRect(renderer, rect);
     };
 }
 
-TilesetBuilder::TilePainter TilePainters::plainColor(const SDLColor &color)
+TilesetBuilder::TilePainter TilePainters::plainColor(const Color &color)
 {
-    return [=](SDL_Renderer *renderer, SDL_Rect *rect, int) {
+    return [=](Renderer &renderer, SDL_Rect *rect, int) {
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 0xFF);
         SDL_RenderFillRect(renderer, rect);
     };
@@ -116,7 +115,7 @@ TilesetBuilder::TilePainter TilePainters::plainColor(const SDLColor &color)
 
 TilesetBuilder::TilePainter TilePainters::plainColor(const HSVRamp &ramp)
 {
-    return [=](SDL_Renderer *renderer, SDL_Rect *rect, int tile) {
+    return [=](Renderer &renderer, SDL_Rect *rect, int tile) {
         const auto color = ramp.get(tile);
         SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 0xFF);
         SDL_RenderFillRect(renderer, rect);
@@ -135,7 +134,7 @@ auto TilePainters::hsvValueRamp(float hue, float sat, float fromValue, float toV
 
 /* -------------------------------------------------------------------------- */
 
-void TileDrawable::draw(SDL_Renderer *renderer, int x, int y, double)
+void TileDrawable::draw(Renderer &renderer, int x, int y, double)
 {
     auto     tileSize = tileset.getTileSize();
     SDL_Rect destRect {x, y, tileSize, tileSize};
@@ -144,7 +143,7 @@ void TileDrawable::draw(SDL_Renderer *renderer, int x, int y, double)
 
 /* -------------------------------------------------------------------------- */
 
-void TileMap::draw(SDL_Renderer *renderer, int x, int y, double)
+void TileMap::draw(Renderer &renderer, int x, int y, double)
 {
     auto     tileSize = tileset.getTileSize();
     SDL_Rect destRect {x, y, tileSize, tileSize};

@@ -2,7 +2,7 @@
 #define SDLPP_TILES_H_
 
 #include "Color.h"
-#include "Sky.h"
+#include "SkyEngine.h"
 #include <mist/Point.h>
 
 #include <functional>
@@ -20,7 +20,7 @@ public:
 
     [[nodiscard]] int getTileSize() const { return tileSize; }
 
-    void drawTile(SDL_Renderer *renderer, int tileId, SDL_Rect &dest) const;
+    void drawTile(Renderer &renderer, int tileId, SDL_Rect &dest) const;
 
 private:
     Texture texture;
@@ -52,12 +52,11 @@ public:
      * @arg rect coordinates of the tile to paint
      * @arg int index of the tile in sequence
      */
-    using TilePainter = std::function<void(SDL_Renderer *renderer, SDL_Rect *rect, int index)>;
+    using TilePainter = std::function<void(Renderer &renderer, SDL_Rect *rect, int index)>;
 
     TilesetBuilder &addSequence(int count, const TilePainter &painter);
     TilesetBuilder &addTile(const TilePainter &painter);
 
-    auto getRenderer() { return renderer.get(); }
     auto drawTile(int tileId, int painterArg, const TilePainter &painter) -> void;
 
 private:
@@ -65,7 +64,7 @@ private:
     int numTiles {0};
 
     std::unique_ptr<Surface> surface;
-    std::unique_ptr<SDL_Renderer, RendererDeleter> renderer;
+    Renderer renderer;
 
     struct Node {
         int         count;
@@ -77,10 +76,10 @@ private:
 
 namespace TilePainters
 {
-using TileToColor = std::function<SDLColor(int)>;
+using TileToColor = std::function<Color(int)>;
 
 TilesetBuilder::TilePainter plainColor(const TileToColor f);
-TilesetBuilder::TilePainter plainColor(const SDLColor &color);
+TilesetBuilder::TilePainter plainColor(const Color &color);
 TilesetBuilder::TilePainter plainColor(const HSVRamp &color);
 auto hsvValueRamp(float hue, float sat, float fromValue, float toValue, int numSteps)
     -> TilesetBuilder::TilePainter;
@@ -96,7 +95,7 @@ public:
     [[nodiscard]] int getTile() const noexcept { return tile; }
     void              setTile(int t) { tile = t; }
 
-    void draw(SDL_Renderer *renderer, int x, int y, double) override;
+    void draw(Renderer &renderer, int x, int y, double) override;
 
 private:
     Tileset &tileset;
@@ -129,7 +128,7 @@ public:
 
     [[nodiscard]] int operator[](const mist::Point2i &p) const { return tiles[p.y * width + p.x]; }
 
-    void draw(SDL_Renderer *renderer, int x, int y, double) override;
+    void draw(Renderer &renderer, int x, int y, double) override;
 
 private:
     const Tileset   &tileset;

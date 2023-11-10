@@ -8,6 +8,8 @@ find_package(mist REQUIRED)
 
 add_library(${MODULE_ID} STATIC
     src/Sky.cpp
+    src/SkyError.cpp
+    src/SkyEngine.cpp
     src/Color.cpp
     src/SkyUi.cpp
     src/Tiles.cpp)
@@ -22,8 +24,8 @@ target_link_libraries(${MODULE_ID}
         project_warnings 
         project_options 
         spdlog::spdlog
-        mist::mist
     PUBLIC 
+        mist::mist
         SDL2::SDL2
         sdl_ttf::sdl_ttf
         SDL2_image::SDL2_image)
