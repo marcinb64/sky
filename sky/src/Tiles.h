@@ -12,6 +12,15 @@
 namespace sky
 {
 
+/**
+ * @brief A utility for drawing tiles from a tileset image
+ *
+ * Holds a collection of tiles in a single image.
+ * Provides drawTile() function for drawing a selected tile on target Renderer.
+ *
+ * Tiles are identified with a single int tileId, counting from 0 in positive X direction,
+ * wrapping to the next row after tilesPerRow tiles.
+ */
 class Tileset
 {
 public:
@@ -28,18 +37,20 @@ private:
     int     tilesPerRow;
 };
 
-/* -------------------------------------------------------------------------- */
+using SharedTileset = std::shared_ptr<Tileset>;
 
+// -----------------------------------------------------------------------------
+
+/// @brief A utility for making procedurally generated tilesets
 class TilesetBuilder
 {
 public:
     TilesetBuilder(int tileSize_);
 
-    Tileset build();
-    Tileset update();
+    SharedTileset build();
 
     /**
-     * @brief Tile Painer function for generating tile sequences with generateSequence()
+     * @brief Tile Painter function for generating tile sequences with addSequence()
      *
      * The painter function will be called for each tile in the sequence.
      * Use the provided renderer to paint each tile at the coordinates given by rect.
@@ -57,14 +68,16 @@ public:
     TilesetBuilder &addSequence(int count, const TilePainter &painter);
     TilesetBuilder &addTile(const TilePainter &painter);
 
-    auto drawTile(int tileId, int painterArg, const TilePainter &painter) -> void;
+    void drawTile(int tileId, int painterArg, const TilePainter &painter);
+
+    void exportToTile(const char *pngFile);
 
 private:
     int tileSize;
     int numTiles {0};
 
     std::unique_ptr<Surface> surface;
-    Renderer renderer;
+    Renderer                 renderer;
 
     struct Node {
         int         count;
@@ -74,6 +87,7 @@ private:
     std::vector<Node> nodes;
 };
 
+/// @brief A collection of tile generation functions for TilesetBuilder
 namespace TilePainters
 {
 using TileToColor = std::function<Color(int)>;
@@ -81,12 +95,16 @@ using TileToColor = std::function<Color(int)>;
 TilesetBuilder::TilePainter plainColor(const TileToColor f);
 TilesetBuilder::TilePainter plainColor(const Color &color);
 TilesetBuilder::TilePainter plainColor(const HSVRamp &color);
+
 auto hsvValueRamp(float hue, float sat, float fromValue, float toValue, int numSteps)
     -> TilesetBuilder::TilePainter;
 } // namespace TilePainters
 
 /* -------------------------------------------------------------------------- */
 
+/// @brief A Drawable that renders a single tile
+/// Defined by a Tileset and a tileId from that set.
+/// For drawing multiple tiles in a grid, use TileMap
 class TileDrawable : public Drawable
 {
 public:
@@ -104,11 +122,12 @@ private:
 
 /* -------------------------------------------------------------------------- */
 
+/// @brief A Drawable grid of tiles from a single Tileset
 class TileMap : public Drawable
 {
 public:
-    TileMap(const Tileset &tileset_, int width_, int height_)
-        : tileset(tileset_), width(width_), height(height_), tiles(width * height)
+    TileMap(SharedTileset tileset_, int width_, int height_)
+        : tileset(std::move(tileset_)), width(width_), height(height_), tiles(width * height)
     {
     }
 
@@ -122,20 +141,26 @@ public:
 
     [[nodiscard]] int getHeight() const noexcept { return height; }
 
-    [[nodiscard]] int getTileSize() const noexcept { return tileset.getTileSize(); }
+    [[nodiscard]] int getTileSize() const noexcept { return tileset->getTileSize(); }
 
     [[nodiscard]] int &operator[](const mist::Point2i &p) { return tiles[p.y * width + p.x]; }
 
     [[nodiscard]] int operator[](const mist::Point2i &p) const { return tiles[p.y * width + p.x]; }
 
+    [[nodiscard]] int &at(const mist::Point2i &p) { return tiles[p.y * width + p.x]; }
+
+    [[nodiscard]] int at(const mist::Point2i &p) const { return tiles[p.y * width + p.x]; }
+
     void draw(Renderer &renderer, int x, int y, double) override;
 
 private:
-    const Tileset   &tileset;
+    SharedTileset    tileset;
     const int        width;
     const int        height;
     std::vector<int> tiles;
 };
+
+using SharedTileMap = std::shared_ptr<TileMap>;
 
 } // namespace sky
 

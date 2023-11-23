@@ -66,8 +66,7 @@ struct WidgetSpec {
 };
 
 struct LabelSpec : public WidgetSpec {
-    struct WidgetSpec widget;
-    std::string       text;
+    std::string text;
 };
 
 class Label : public Widget

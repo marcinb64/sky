@@ -15,8 +15,6 @@ namespace sky
 {
 
 class Scene;
-class Object;
-class Drawable;
 
 class Renderer
 {
@@ -26,8 +24,8 @@ public:
     ~Renderer();
     Renderer(const Renderer &other) = delete;
     Renderer &operator=(const Renderer &other) = delete;
-    Renderer(Renderer &&other) = default;
-    Renderer &operator=(Renderer &&other) = default;
+    Renderer(Renderer &&other);
+    Renderer &operator=(Renderer &&other);
 
     operator SDL_Renderer *() { return renderer; }
 
@@ -40,14 +38,10 @@ private:
     SDL_Renderer *renderer = nullptr;
 };
 
-struct RendererDeleter {
-    void operator()(SDL_Renderer *r)
-    {
-        if (r) SDL_DestroyRenderer(r);
-    }
-};
-
 // -----------------------------------------------------------------------------
+
+class Texture;
+class Font;
 
 class Sky
 {
@@ -67,6 +61,8 @@ public:
     void mainLoop(float fpsCap);
 
     void setScene(Scene *scene);
+
+    static std::shared_ptr<Font>    loadFont(const char *file, int size);
 
 private:
     static std::unique_ptr<Sky> instance;
@@ -100,6 +96,9 @@ public:
 
     [[nodiscard]] int getWidth() const noexcept { return surface->w; }
     [[nodiscard]] int getHeight() const noexcept { return surface->h; }
+
+    static Surface fromFile(const char *file);
+    void saveToFile(const char *file);
 
 private:
     SDL_Surface *surface;
@@ -144,8 +143,8 @@ public:
 
     Font(const Font &other) = delete;
     Font &operator=(const Font &other) = delete;
-    Font(Font &&other) = default;
-    Font &operator=(Font &&other) = default;
+    Font(Font &&other);
+    Font &operator=(Font &&other);
 
     Texture       renderSolid(const std::string &text, const Color &color) const;
     mist::Point2i measure(const std::string text) const;
@@ -184,12 +183,64 @@ private:
     bool alive {true};
 };
 
-class Assets
+// -----------------------------------------------------------------------------
+
+template <class T, class Loader> class Res
 {
 public:
-    auto loadTexture(const char *file) -> std::shared_ptr<Texture>;
-    auto loadFont(const char *file, int size) -> std::shared_ptr<Font>;
+    using Arg = typename Loader::Arg;
+
+    Res(Arg loaderArg_) : loaderArg(loaderArg_) {}
+
+    Res() : loaderArg(nullptr) {}
+
+    bool isLoaded() const { return !res.expired(); }
+
+    operator std::shared_ptr<T>() const { return get(); }
+
+    std::shared_ptr<T> get() const
+    {
+        std::shared_ptr<T> current = res.lock();
+        if (!current) {
+            if constexpr (std::is_same_v<Arg, nullptr_t>)
+                current = Loader {}();
+            else
+                current = Loader {}(loaderArg);
+            res = current;
+        }
+        return current;
+    }
+
+protected:
+    const Arg                loaderArg;
+    mutable std::weak_ptr<T> res;
 };
+
+struct TextureLoader {
+    using Arg = const char *;
+
+    std::shared_ptr<Texture> operator()(const char *source)
+    {
+        return std::make_shared<Texture>(Surface::fromFile(source));
+    }
+};
+
+struct FontSpec {
+    const char *file;
+    int         size;
+};
+
+struct FontLoader {
+    using Arg = FontSpec;
+
+    std::shared_ptr<Font> operator()(const FontSpec &spec)
+    {
+        return Sky::loadFont(spec.file, spec.size);
+    }
+};
+
+using TextureRes = Res<Texture, TextureLoader>;
+using FontRes = Res<Font, FontLoader>;
 
 }; // namespace sky
 

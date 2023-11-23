@@ -3,8 +3,8 @@
 #include <mist/moremath.h>
 
 #include <SDL_image.h>
-#include <spdlog/spdlog.h>
 #include <cassert>
+#include <spdlog/spdlog.h>
 
 using namespace sky;
 
@@ -57,13 +57,14 @@ TilesetBuilder &TilesetBuilder::addTile(const TilePainter &painter)
     return *this;
 }
 
-Tileset TilesetBuilder::build()
+SharedTileset TilesetBuilder::build()
 {
-    surface = std::make_unique<Surface>(tileSize * numTiles, tileSize, 32);
-    renderer = Renderer(SDL_CreateSoftwareRenderer(surface->get()));
-    if (renderer == nullptr) throw SDLError("Create software renderer");
+    if (surface == nullptr) {
+        surface = std::make_unique<Surface>(tileSize * numTiles, tileSize, 32);
+        renderer = Renderer(SDL_CreateSoftwareRenderer(surface->get()));
+    }
 
-    renderer.setDrawColor(Color { 0, 0, 0, 255});
+    renderer.setDrawColor(Color {0, 0, 0, 255});
     renderer.clear();
 
     int startingTile = 0;
@@ -75,23 +76,25 @@ Tileset TilesetBuilder::build()
         startingTile += node.count;
     }
 
-    return Tileset(*surface, tileSize);
+    return std::make_shared<Tileset>(*surface, tileSize);
 }
-
-Tileset TilesetBuilder::update()
-{
-    return Tileset(*surface, tileSize);
-}
-
 
 auto TilesetBuilder::drawTile(int tileId, int painterArg, const TilePainter &painter) -> void
 {
-    if (renderer == nullptr) throw SDLError("Tileset not yet built");
-    //SDL_SetRenderDrawColor(renderer.get(), 0, 0, 0, 0xFF);
-    //SDL_RenderClear(renderer.get());
+    if (renderer == nullptr) {
+        throw SDLError("Draw tile: tileset not built yet");
+    }
 
     SDL_Rect rect {tileId * tileSize, 0, tileSize, tileSize};
     painter(renderer, &rect, painterArg);
+}
+
+void TilesetBuilder::exportToTile(const char *pngFile)
+{
+    if (!surface) {
+        throw std::runtime_error("Export tileset: not built yet");
+    }
+    surface->saveToFile(pngFile);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -145,14 +148,14 @@ void TileDrawable::draw(Renderer &renderer, int x, int y, double)
 
 void TileMap::draw(Renderer &renderer, int x, int y, double)
 {
-    auto     tileSize = tileset.getTileSize();
+    auto     tileSize = tileset->getTileSize();
     SDL_Rect destRect {x, y, tileSize, tileSize};
 
     for (int iy = 0; iy < height; iy++) {
         for (int ix = 0; ix < width; ix++) {
             destRect.x = x + tileSize * ix;
             destRect.y = y + tileSize * iy;
-            tileset.drawTile(renderer, tiles[iy * width + ix], destRect);
+            tileset->drawTile(renderer, tiles[iy * width + ix], destRect);
         }
     }
 }

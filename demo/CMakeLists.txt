@@ -2,5 +2,5 @@ set(COMMON_SOURCES
     )
 
 add_subdirectory(basic)
-#add_subdirectory(mist)
-#add_subdirectory(tiles)
+add_subdirectory(engine)
+add_subdirectory(tiles)

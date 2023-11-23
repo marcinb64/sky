@@ -4,7 +4,7 @@ from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
 
 class HelloConan(ConanFile):
     name = "sky"
-    version = "0.1.1"
+    version = "0.1.2"
 
     # Optional metadata
     license = "MIT"
@@ -19,7 +19,7 @@ class HelloConan(ConanFile):
     default_options = {"shared": False, "fPIC": True}
 
     # Sources are located in the same place as this recipe, copy them to the recipe
-    exports_sources = "CMakeLists.txt", "*.cmake", "sky/*", "demo/*", "starter/*"
+    exports_sources = "CMakeLists.txt", "*.cmake", "sky/*", "demo/*"
     generators = "CMakeDeps"
 
     def config_options(self):
@@ -27,7 +27,7 @@ class HelloConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
-        self.requires("mist/0.1.7")
+        self.requires("mist/0.1.8")
         self.requires("sdl/2.26.5")
         self.requires("sdl_ttf/2.20.1")
         self.requires("sdl_image/2.0.5")

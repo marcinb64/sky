@@ -12,7 +12,8 @@ add_library(${MODULE_ID} STATIC
     src/SkyEngine.cpp
     src/Color.cpp
     src/SkyUi.cpp
-    src/Tiles.cpp)
+    src/Tiles.cpp
+    )
 
     
 target_include_directories(${MODULE_ID} PUBLIC

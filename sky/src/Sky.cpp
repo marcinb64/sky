@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include <spdlog/spdlog.h>
+
 using namespace std;
 using namespace sky;
 
@@ -91,41 +93,18 @@ void Sky::createWindow(const char *name)
     primarySurface = SDL_GetWindowSurface(window);
 }
 
-/* -------------------------------------------------------------------------- */
-
-Surface::Surface(SDL_Surface *surface_) : surface(surface_)
+auto Sky::loadFont(const char *file, int size) -> std::shared_ptr<Font>
 {
-}
-
-Surface::Surface(int width, int height, int bpp)
-{
-    using M = sky::ColorMask;
-    // NOLINTNEXTLINE
-    surface = SDL_CreateRGBSurface(0, width, height, bpp, M::r, M::g, M::b, M::a);
-    if (surface == nullptr) throw SDLError("Create surface for tileset");
-}
-
-Surface::~Surface()
-{
-    if (surface) SDL_FreeSurface(surface);
-}
-
-Surface::Surface(Surface &&other) noexcept
-{
-    *this = std::move(other);
-}
-
-Surface &Surface::operator=(Surface &&other) noexcept
-{
-    surface = other.surface;
-    other.surface = nullptr;
-    return *this;
+    auto *font = TTF_OpenFont(file, size);
+    if (!font) throw TTFError("open font");
+    return std::make_shared<Font>(font);
 }
 
 // -----------------------------------------------------------------------------
 
 Renderer::Renderer(SDL_Renderer *r) : renderer(r)
 {
+    if (r == nullptr) throw SDLError("null renderer");
 }
 
 Renderer::~Renderer()
@@ -133,6 +112,21 @@ Renderer::~Renderer()
     if (renderer) {
         SDL_DestroyRenderer(renderer);
     }
+}
+
+Renderer::Renderer(Renderer &&other)
+{
+    *this = std::move(other);
+}
+
+Renderer &Renderer::operator=(Renderer &&other)
+{
+    if (renderer) {
+        SDL_DestroyRenderer(renderer);
+    }
+    renderer = other.renderer;
+    other.renderer = nullptr;
+    return *this;
 }
 
 void Renderer::setDrawColor(const Color &color)
@@ -152,6 +146,58 @@ void Renderer::present()
 
 // -----------------------------------------------------------------------------
 
+Surface::Surface(SDL_Surface *surface_) : surface(surface_)
+{
+}
+
+Surface::Surface(int width, int height, int bpp)
+{
+    using M = sky::ColorMask;
+    // NOLINTNEXTLINE
+    surface = SDL_CreateRGBSurface(0, width, height, bpp, M::r, M::g, M::b, M::a);
+    if (surface == nullptr) {
+        throw SDLError("Create surface for tileset");
+    }
+}
+
+Surface::~Surface()
+{
+    if (surface) {
+        SDL_FreeSurface(surface);
+    }
+}
+
+Surface::Surface(Surface &&other) noexcept
+{
+    *this = std::move(other);
+}
+
+Surface &Surface::operator=(Surface &&other) noexcept
+{
+    if (surface) {
+        SDL_FreeSurface(surface);
+    }
+    surface = other.surface;
+    other.surface = nullptr;
+    return *this;
+}
+
+Surface Surface::fromFile(const char *file)
+{
+    auto *tmp = IMG_Load(file);
+    if (tmp == nullptr) throw SDLError("Load image");
+    return Surface {tmp};
+}
+
+void Surface::saveToFile(const char *file)
+{
+    if (IMG_SavePNG(surface, file)) {
+        throw SDLError("save png file");
+    }
+}
+
+// -----------------------------------------------------------------------------
+
 Texture::Texture(SDL_Texture *texture_, int width_, int height_)
     : texture(texture_), width(width_), height(height_)
 {
@@ -160,12 +206,16 @@ Texture::Texture(SDL_Texture *texture_, int width_, int height_)
 Texture::Texture(const Surface &surface) : width(surface.getWidth()), height(surface.getHeight())
 {
     texture = SDL_CreateTextureFromSurface(Sky::currentRenderer(), surface.get());
-    if (texture == nullptr) throw SDLError("Create texture from surface");
+    if (texture == nullptr) {
+        throw SDLError("Create texture from surface");
+    }
 }
 
 Texture::~Texture()
 {
-    if (texture) SDL_DestroyTexture(texture);
+    if (texture) {
+        SDL_DestroyTexture(texture);
+    }
 }
 
 Texture::Texture(Texture &&other) noexcept
@@ -175,10 +225,14 @@ Texture::Texture(Texture &&other) noexcept
 
 Texture &Texture::operator=(Texture &&other) noexcept
 {
+    if (texture) {
+        SDL_DestroyTexture(texture);
+    }
     texture = other.texture;
     other.texture = nullptr;
     width = other.width;
     height = other.height;
+
     return *this;
 }
 
@@ -196,7 +250,24 @@ Font::Font(TTF_Font *font_) : font(font_)
 
 Font::~Font()
 {
-    if (font) TTF_CloseFont(font);
+    if (font) {
+        TTF_CloseFont(font);
+    }
+}
+
+Font::Font(Font &&other)
+{
+    *this = std::move(other);
+}
+
+Font &Font::operator=(Font &&other)
+{
+    if (font) {
+        TTF_CloseFont(font);
+    }
+    font = other.font;
+    other.font = nullptr;
+    return *this;
 }
 
 Texture Font::renderSolid(const std::string &text, const Color &color) const
@@ -211,28 +282,6 @@ mist::Point2i Font::measure(const std::string text) const
     mist::Point2i ret {0, 0};
     TTF_SizeText(font, text.c_str(), &ret.x, &ret.y);
     return ret;
-}
-
-// -----------------------------------------------------------------------------
-
-auto Assets::loadTexture(const char *file) -> std::shared_ptr<Texture>
-{
-    auto *tmp = IMG_Load(file);
-    if (tmp == nullptr) throw SDLError("Load image");
-
-    auto texture = std::make_shared<Texture>(
-        SDL_CreateTextureFromSurface(Sky::currentRenderer(), tmp), tmp->w, tmp->h);
-    SDL_FreeSurface(tmp);
-    if (texture == nullptr) throw SDLError("Create image texture");
-
-    return texture;
-}
-
-auto Assets::loadFont(const char *file, int size) -> std::shared_ptr<Font>
-{
-    auto *font = TTF_OpenFont(file, size);
-    if (!font) throw TTFError("open font");
-    return std::make_shared<Font>(font);
 }
 
 // -----------------------------------------------------------------------------

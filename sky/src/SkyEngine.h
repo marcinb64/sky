@@ -3,6 +3,10 @@
 
 #include "Sky.h"
 
+#include <mist/Point.h>
+#include <mist/moremath.h>
+
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -12,17 +16,23 @@ namespace sky
 {
 
 class Object;
+class Drawable;
 
-class EngineScene : public Scene
+using SharedObject = std::shared_ptr<Object>;
+using SharedDrawable = std::shared_ptr<Drawable>;
+
+using Transform2d = mist::LinearTransform2<double>;
+
+class Context
 {
 public:
-    void add(std::shared_ptr<Object> d);
+    Context() = default;
 
-protected:
-    void onDraw(Renderer &renderer) override;
+    void          setWorldToScreen(Transform2d w2s) { worldToScreenTransform = w2s; }
+    mist::Point2i worldToScreen(mist::Point2d p);
 
 private:
-    std::vector<std::shared_ptr<Object>> renderList;
+    Transform2d worldToScreenTransform {{0, 0}, {1, 1}, {0, 0}, {1, 1}};
 };
 
 class Drawable
@@ -41,25 +51,20 @@ public:
 class Object
 {
 public:
-    static std::shared_ptr<Object> from(std::shared_ptr<Drawable> d);
+    mist::Point2d position;
+    double        heading = 0;
+
+    static SharedObject from(SharedDrawable d);
 
     Object() = default;
-    explicit Object(std::shared_ptr<Drawable> d);
+    explicit Object(SharedDrawable d);
 
-    Object &setDrawable(std::shared_ptr<Drawable> d);
-    Object &setPosition(int x, int y);
-    Object &setHeading(double a);
+    Object &setDrawable(SharedDrawable d);
 
-    [[nodiscard]] auto getX() const noexcept -> int { return x; }
-    [[nodiscard]] auto getY() const noexcept -> int { return y; }
-
-    void draw(Renderer &renderer) const;
+    void draw(Renderer &renderer, Context &context) const;
 
 private:
-    int                       x = 0;
-    int                       y = 0;
-    double                    heading = 0;
-    std::shared_ptr<Drawable> drawable;
+    SharedDrawable drawable;
 };
 
 class Sprite : public Drawable
@@ -80,6 +85,51 @@ private:
     int                      height;
 };
 
+using SharedSprite = std::shared_ptr<Sprite>;
+
+// -----------------------------------------------------------------------------
+
+struct RenderLayer {
+    Context                   context;
+    std::vector<SharedObject> objects;
+};
+
+struct Transforms
+{
+    static Transform2d uiDefault();
+    static Transform2d world(double xExtent, double yExtent, int screenWidth, int screenHeight);
+    static Transform2d tiles(int tileSize, int screenWidth, int screenHeight);
+};
+
+class EngineScene : public Scene
+{
+public:
+    EngineScene();
+
+    void setWorldToScreen(const Transform2d &w2s);
+    void add(SharedObject d);
+    void addUi(SharedObject d);
+
+    static SharedSprite loadSprite(const char *file);
+
+protected:
+    void         onDraw(Renderer &renderer) override;
+    virtual void onPostDraw(Renderer &) {};
+
+private:
+    std::array<RenderLayer, 2> layers;
+};
+
+struct SpriteLoader {
+    using Arg = const char*;
+
+    std::shared_ptr<sky::Sprite> operator()(const char *source)
+    {
+        return EngineScene::loadSprite(source);
+    }
+};
+
+using SpriteRes = Res<Sprite, SpriteLoader>;
 
 } // namespace sky
 

@@ -1,5 +1,4 @@
 #include <Sky.h>
-#include <SkyUi.h>
 #include <spdlog/spdlog.h>
 
 namespace demo
@@ -7,32 +6,17 @@ namespace demo
 
 constexpr auto FPS_CAP = 60.0;
 
-class DemoAssets : public sky::Assets
+class DemoAssets
 {
 public:
-    struct Sprites {
-        static constexpr auto player = "res/player.png";
-    };
-
-    struct Fonts {
-        static constexpr auto primary = "res/default.ttf";
-        static constexpr auto primarySize = 14;
-    };
-
-    DemoAssets()
-    {
-        playerTex = loadTexture(DemoAssets::Sprites::player);
-        primaryFont = loadFont(Fonts::primary, Fonts::primarySize);
-    }
-
-    std::shared_ptr<sky::Texture> playerTex;
-    std::shared_ptr<sky::Font>    primaryFont;
+    static const inline sky::TextureRes playerTex {"res/target.png"};
+    static const inline sky::FontRes    primaryFont {sky::FontSpec {"res/default.ttf", 14}};
 };
 
 class StarterScene : public sky::Scene
 {
 public:
-    StarterScene(DemoAssets assets_) : assets(assets_)
+    StarterScene()
     {
         position.x = 200;
         position.y = 600;
@@ -48,12 +32,12 @@ public:
 
     void drawStuff(sky::Renderer &renderer)
     {
-        const auto &p = assets.playerTex;
-        auto     intPos = mist::round(position);
-        SDL_Rect destRect {intPos.x, intPos.y, p->getWidth(), p->getHeight()};
+        const auto &p = DemoAssets::playerTex.get();
+        auto        intPos = mist::round(position);
+        SDL_Rect    destRect {intPos.x, intPos.y, p->getWidth(), p->getHeight()};
         p->renderTo(renderer, nullptr, &destRect);
 
-        auto labelTex = assets.primaryFont->renderSolid(
+        auto labelTex = DemoAssets::primaryFont.get()->renderSolid(
             fmt::format("Pos: {}, {}", intPos.x, intPos.y), sky::Color {255, 255, 0, 255});
         destRect = {10, 20, labelTex.getWidth(), labelTex.getHeight()};
 
@@ -78,7 +62,6 @@ public:
     }
 
 private:
-    DemoAssets    assets;
     mist::Point2f position;
     mist::Point2f velocity;
 };
@@ -94,8 +77,7 @@ int main()
         using namespace demo;
 
         Sky::initWindow("Sky - Basic demo", 1200, 800);
-        DemoAssets   assets;
-        StarterScene scene {assets};
+        StarterScene scene {};
         Sky::getInstance().setScene(&scene);
         Sky::getInstance().mainLoop(FPS_CAP);
     }

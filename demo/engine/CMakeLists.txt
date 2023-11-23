@@ -1,4 +1,4 @@
-set(MODULE_ID tiles_demo)
+set(MODULE_ID engine_demo)
 
 find_package(spdlog REQUIRED)
 find_package(mist REQUIRED)
@@ -14,5 +14,6 @@ target_link_libraries(${MODULE_ID}
         project_warnings
         project_options
         sky
+        mist::mist
         spdlog::spdlog)
                                                                              
